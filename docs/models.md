@@ -14,12 +14,14 @@ Fill in from the copied reports (`Copiar informe`) after each device session. Ti
 
 | Model | iPhone load ms | Page reload on iPhone? | Desktop load ms | UI freezes? |
 | --- | --- | --- | --- | --- |
-| Detector (yolos-tiny) | | | | |
-| Vision (SmolVLM 256M) | | | | |
-| LLM (model id) | | | | |
-| Hearing (whisper-base / tiny) | | | | |
+| Detector (yolos-tiny) | 305–361 (cache) | WebGPU: killed at first frame. WASM: 0.2 fps | | |
+| Detector (MediaPipe EfficientDet-Lite0, WebGL) | 129–462 (cache), 4392 cold | no; 56 ms/frame, ~15 fps | | |
+| Vision (SmolVLM 256M) | 597–1000 (cache) | alone: no. After a reload: out of memory | | |
+| LLM (Llama-3.2-1B-Instruct-q4f16_1-MLC) | 1800–4800 (cache), 38455 cold (Chrome iOS) | Safari: often on the first load, and with other models or the camera. Chrome iOS, fresh: no, even with the camera and classifier | | |
+| Vision (MediaPipe EfficientNet-Lite2 int8 + colours) | 2281 cold (Chrome iOS) | no | | |
+| Hearing (whisper-base / tiny) | | whisper-base with the LLM: killed | | |
 
-Which combination coexists on the iPhone, and which must be swapped:
+Which combination coexists on the iPhone, and which must be swapped: detector and vision coexist with the camera. In a freshly started browser (Chrome iOS) the LLM, the classifier and the camera at 720p coexist in one page and a wake completes. In Safari after many attempts, the LLM coexisted with nothing, and a reload does not free memory. Still to check: Safari after force-quitting it, and SmolVLM or the detector beside the LLM.
 
 ### Log
 
@@ -78,6 +80,21 @@ Which combination coexists on the iPhone, and which must be swapped:
 
 - 2026-09-24, iPhone, Safari, two-step wake: after the automatic reload, SmolVLM failed to load ten times in a row with `no available backend found. ERR: [webgpu] RangeError: Out of memory` (100 to 180 ms each). A reload does not give back ONNX Runtime's memory. The camera page's log was lost with the reload (fixed).
 - The default vision engine is now MediaPipe's image classifier plus pixel colours (ADR 0016). Headless Chromium: 7.5 s cold load, 0.2 s per classification on the CPU. Next: wake with the camera on the iPhone.
+- 2026-09-24, iPhone, Safari, build with ADR 0016, last runs of M0:
+  - **Two-step wake with SmolVLM, fresh tab:** SmolVLM loaded in 800 ms and described in 3112 ms. The description was concrete, but it looped: "The white door has a metallic handle on the right side. The door has a white frame. The door has a white doorknob…", repeated until the token cap.
+  - After the automatic reload, loading Llama-3.2-1B killed the tab. On the next page it loaded in 2739 ms, and the tab died about 11 s into soul generation.
+  - **One-page wake** with the camera open at 720p: the tab died while loading the LLM, before any vision model ran.
+  - These Safari runs came after dozens of attempts and crashes in the same browser session.
+- 2026-09-24, iPhone, **Chrome 154 for iOS** (WebKit, iOS 27.2), fresh browser with empty caches (33 MB used): **the first complete camera wake on the iPhone.**
+  - One page, with the camera open at 720p and the default classifier. Nothing crashed.
+  - Llama-3.2-1B loaded in 38455 ms (a cold download) and the classifier in 2281 ms.
+  - The classifier returned "sliding door 49%, wardrobe 10%, shoji 7%". The description, "An orange and grey sliding door.", took 80 ms.
+  - `wake.createSoul` took 18123 ms and `wake.total` 58942 ms. Without the download, the wake would take about 20 s, with the soul as the slow part.
+- 2026-09-24, iPhone, Chrome for iOS, second wake with the models cached, camera at 720p: again no crash.
+  - Timings: LLM load 2072 ms, classifier load 109 ms, describe 90 ms ("A grey desk.": desk 21%, home theater 15%, television 14%).
+  - `wake.createSoul` took 17912 ms and **`wake.total` 20186 ms**, against a 12 s target. Soul generation takes almost all of it: 18 s here, against 4 to 14 s for text-only wakes in Safari.
+  - Next: talk to the soul (text, then `SpeechRecognition`), and repeat the wake in Safari after force-quitting it, to tell a Safari limit from a worn-out process.
+- 2026-09-24, iPhone, Chrome for iOS: "Flibber, the Sliding Door of Destiny" greeted with "Hello, I'm Flibber! I look like a grey sliding door, but I've got so much to offer!", which mentions its appearance. "Hold to talk" stayed disabled with no Whisper model loaded. System speech recognition is now the default for hearing (ADR 0017).
 
 ## Built-in AI on iOS
 
@@ -88,13 +105,13 @@ Which combination coexists on the iPhone, and which must be swapped:
 | Metric | Target | iPhone | Desktop |
 | --- | --- | --- | --- |
 | `talk.firstAudioFromRelease` | < 4000 iPhone, < 2500 desktop | | |
-| `wake.total` | < 12000 iPhone | | |
-| Detection fps | >= 5 iPhone | | |
+| `wake.total` | < 12000 iPhone | 20186 (Chrome iOS, cached) | |
+| Detection fps | >= 5 iPhone | ~15 (MediaPipe, WebGL) | |
 | `stt.transcribe` | | | |
 | `llm.firstToken` | | | |
 | `llm.fullReply` | | | |
-| `wake.describe` | | | |
-| `wake.createSoul` | | | |
+| `wake.describe` | | 80–90 (classifier), 3112 (SmolVLM) | |
+| `wake.createSoul` | | 3700–13400 (text-only wake, Llama 1B) | |
 | `memory.compact` | | | |
 
 ## Qualitative answers
