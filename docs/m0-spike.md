@@ -33,7 +33,7 @@ The spike is a single-page test harness with five areas, in this order on the pa
 - Primary: iPhone, Safari. Secondary: Windows desktop, Chrome. Tertiary: Android, Chrome.
 - On iOS every browser, Chrome included, uses WebKit. There is no WebXR on iOS; do not use it anywhere.
 - HTTPS is required for camera and microphone. Deploy target is GitHub Pages, which cannot set COOP/COEP headers, so the page is not cross-origin isolated and WASM runs single-threaded. Do not rely on SharedArrayBuffer.
-- Every model must have a WASM fallback when WebGPU is missing.
+- Every model must have a WASM fallback when WebGPU is missing, except the LLM: waking and talking require WebGPU (ADR 0003).
 - Libraries load from npm through Vite; model weights download from Hugging Face and the MLC CDN on first use and are cached by the libraries in Cache Storage.
 
 ---

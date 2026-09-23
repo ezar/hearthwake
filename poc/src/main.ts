@@ -38,7 +38,10 @@ function refreshButtons(): void {
     button(`load-${key}`).disabled = !started || busy;
     button(`free-${key}`).disabled = !loaded[key] || busy;
   }
-  $<HTMLSelectElement>('llm-model').disabled = !started || busy;
+  // Talking requires WebGPU (ADR 0003), so the LLM stays off without it.
+  const hasWebGpu = runtime.device === 'webgpu';
+  button('load-llm').disabled ||= !hasWebGpu;
+  $<HTMLSelectElement>('llm-model').disabled = !started || busy || !hasWebGpu;
   $<HTMLSelectElement>('stt-model').disabled = !started || busy;
   button('btn-start').disabled = busy;
   button('btn-camera').disabled = !started || busy || cameraOpen;
@@ -76,6 +79,9 @@ button('btn-start').addEventListener('click', () =>
     runtime.f16 = probe.shaderF16;
     $('probe-out').textContent = JSON.stringify(probe, null, 2);
     log(`Runtime: ${runtime.device}${runtime.f16 ? ' + fp16' : ''}`);
+    if (!probe.webgpu)
+      setStatus('llm', 'Necesita WebGPU: en este navegador no se puede despertar ni hablar', true);
+    else if (!loaded.llm) setStatus('llm', 'Sin cargar');
 
     const models = await llm.listModels(runtime.f16);
     const picker = $<HTMLSelectElement>('llm-model');
@@ -100,8 +106,8 @@ const loaders: Record<ModelKey, () => Promise<string>> = {
     return 'HuggingFaceTB/SmolVLM-256M-Instruct';
   },
   llm: async () => {
-    // WebLLM runs only on WebGPU; see docs/decisions/0003-llm-without-webgpu.md.
-    if (runtime.device !== 'webgpu') throw new Error('WebLLM necesita WebGPU y este navegador no lo tiene');
+    // Talking requires WebGPU; see docs/decisions/0003-llm-requires-webgpu.md.
+    if (runtime.device !== 'webgpu') throw new Error('Necesita WebGPU');
     const id = $<HTMLSelectElement>('llm-model').value;
     await llm.loadLLM(id, text => setStatus('llm', text));
     return id;
