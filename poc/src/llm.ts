@@ -106,19 +106,22 @@ function requireEngine(): MLCEngine {
 
 // Soul creation.
 
-const SOUL_SCHEMA = {
+// Every string and the traits list are bounded. On the iPhone, Gemma 3 1B looped inside an unbounded
+// traits array until it ran out of tokens. The bundled XGrammar honours these keywords (ADR 0011).
+const text_ = (maxLength: number) => ({ type: 'string', maxLength });
+export const SOUL_SCHEMA = {
   type: 'object',
   properties: {
-    name: { type: 'string' },
-    title: { type: 'string' },
-    archetype: { type: 'string' },
-    traits: { type: 'array', items: { type: 'string' } },
-    style: { type: 'string' },
-    catchphrase: { type: 'string' },
-    secret: { type: 'string' },
+    name: text_(30),
+    title: text_(60),
+    archetype: text_(60),
+    traits: { type: 'array', items: text_(30), minItems: 3, maxItems: 5 },
+    style: text_(120),
+    catchphrase: text_(80),
+    secret: text_(120),
     pitch: { type: 'number' },
     rate: { type: 'number' },
-    greeting: { type: 'string' },
+    greeting: text_(200),
   },
   required: [
     'name',
@@ -132,6 +135,20 @@ const SOUL_SCHEMA = {
     'rate',
     'greeting',
   ],
+};
+
+// One complete soul, so small models see the shape and tone instead of guessing from field names.
+const SOUL_EXAMPLE = {
+  name: 'Doña Porcelana',
+  title: 'Reina del desayuno',
+  archetype: 'Abuela presumida',
+  traits: ['cariñosa', 'cotilla', 'algo dramática'],
+  style: 'Habla despacio y suspira cuando se le enfría el café.',
+  catchphrase: '¡Qué calentito!',
+  secret: 'Tiene una grieta pequeñita que nadie ha visto.',
+  pitch: 1.3,
+  rate: 0.9,
+  greeting: '¡Uy, qué frío! ¿Alguien ha visto brillar mi asa dorada? ¡Hola, tesoro!',
 };
 
 // Returns the first balanced {...} block, ignoring braces inside strings.
@@ -200,7 +217,8 @@ export function normalizeSoul(raw: unknown): SoulProfile {
 export async function createSoul(label: string, description: string): Promise<SoulProfile> {
   const reply = await requireEngine().chat.completions.create({
     temperature: 0.9,
-    max_tokens: 400,
+    // The bounded schema tops out at roughly 300 tokens; leave some room.
+    max_tokens: 450,
     response_format: { type: 'json_object', schema: JSON.stringify(SOUL_SCHEMA) },
     messages: forModel([
       {
@@ -212,11 +230,14 @@ export async function createSoul(label: string, description: string): Promise<So
       {
         role: 'user',
         content:
-          `Objeto detectado: ${label}\nDescripción visual (en inglés): ${description}\n\n` +
-          'Crea el alma de este objeto, todo en español. Requisitos: un nombre propio original y divertido; ' +
-          'un título épico corto; un arquetipo en pocas palabras; de 3 a 5 rasgos; style describe en una frase ' +
-          'cómo habla; una muletilla corta; un secreto inofensivo; pitch entre 0.6 y 1.6 y rate entre 0.8 y 1.2 ' +
-          'según su carácter; greeting es su primera frase al despertar y debe mencionar algo concreto de su aspecto.',
+          'Ejemplo para una taza blanca con el asa dorada:\n' +
+          `${JSON.stringify(SOUL_EXAMPLE)}\n\n` +
+          `Ahora el objeto real. Objeto: ${label}. Cómo es: ${description}\n\n` +
+          'Crea su alma, todo en español y distinta del ejemplo: un nombre propio original y divertido; ' +
+          'un título épico corto; un arquetipo en pocas palabras; de 3 a 5 rasgos de personalidad (adjetivos); ' +
+          'style describe en una frase cómo habla; una muletilla corta; un secreto inofensivo; pitch entre 0.6 y ' +
+          '1.6 y rate entre 0.8 y 1.2 según su carácter; greeting es un saludo al despertar, no una despedida, ' +
+          'y menciona algo concreto de su aspecto.',
       },
     ]),
   });

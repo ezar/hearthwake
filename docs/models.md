@@ -51,6 +51,11 @@ Which combination coexists on the iPhone, and which must be swapped:
   - Two generations ran without crashing (`wake.createSoul` 13.7 s and 13.9 s), but both failed with "El modelo no devolvió JSON válido".
   - The raw output was not logged. It now is, with the finish reason and token count, to tell a truncated reply (400-token cap) from malformed JSON.
 
+- 2026-09-23, iPhone, Safari, Gemma 3 1B, text-only wake with the failure log:
+  - The first load attempt killed the tab again; the second loaded in 2574 ms.
+  - `wake.createSoul` took 12.2 s and failed with `finish=length, 399 tokens`: the model looped inside the `traits` array, writing field-like strings.
+  - Fixed by bounding the schema and adding a worked example (ADR 0011).
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.

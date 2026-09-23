@@ -1,6 +1,6 @@
 # 0004. Soul JSON generation details
 
-Status: accepted, M0.
+Status: accepted, M0. The schema-bounds part is superseded by ADR 0011.
 
 ## Context
 
