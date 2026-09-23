@@ -6,7 +6,7 @@ Fill in from the copied reports (`Copiar informe`) after each device session. Ti
 
 | Device | OS / browser | webgpu | shaderF16 | maxBufferSize MB | Storage quota MB |
 | --- | --- | --- | --- | --- | --- |
-| iPhone | | | | | |
+| iPhone (4 cores) | iOS 27.2, Edge 153 (WebKit) | yes | yes | 1024 | 39322 |
 | Windows desktop | | | | | |
 | Android (optional) | | | | | |
 
@@ -20,6 +20,10 @@ Fill in from the copied reports (`Copiar informe`) after each device session. Ti
 | Hearing (whisper-base / tiny) | | | | |
 
 Which combination coexists on the iPhone, and which must be swapped:
+
+### Log
+
+- 2026-09-23, iPhone, Edge: the tab was killed near the end of the LLM load (model to confirm; the default is Qwen2.5-1.5B). The context window was still WebLLM's default of 4096 tokens; it is 2048 since ADR 0005.
 
 ## Headline metrics
 

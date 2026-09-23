@@ -27,6 +27,12 @@ const WANTED = [
 ];
 export const DEFAULT_MODEL = /^Qwen2\.5-1\.5B-Instruct-/;
 
+// The KV cache is allocated for the whole window up front. Prompts here (system prompt, eight history
+// messages, a 160-token reply) fit well inside 2048, and halving WebLLM's usual 4096 saves memory on iOS.
+// See docs/decisions/0005-llm-context-window.md.
+export const CONTEXT_WINDOW = 2048;
+const CHAT_OPTIONS = { context_window_size: CONTEXT_WINDOW };
+
 let engine: MLCEngine | null = null;
 let loadedId: string | null = null;
 let progress: (text: string) => void = () => {};
@@ -52,10 +58,14 @@ export async function loadLLM(id: string, onProgress: (text: string) => void): P
   progress = onProgress;
   await timed(`load.llm.${id}`, async () => {
     if (engine) {
-      await engine.reload(id);
+      await engine.reload(id, CHAT_OPTIONS);
     } else {
       const webllm = await import('@mlc-ai/web-llm');
-      engine = await webllm.CreateMLCEngine(id, { initProgressCallback: p => progress(p.text) });
+      engine = await webllm.CreateMLCEngine(
+        id,
+        { initProgressCallback: p => progress(p.text) },
+        CHAT_OPTIONS,
+      );
     }
   });
   loadedId = id;
