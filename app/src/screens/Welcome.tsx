@@ -5,6 +5,8 @@ import { ensureLlm, useEngine } from '../engine/engine';
 import { MODEL_DOWNLOAD_MB } from '../engine/llm';
 import { unlockSpeech } from '../engine/voice';
 import { Check, Download, Flame, Keyboard } from '../ui/icons';
+import { useTitle } from '../ui/useTitle';
+import { useWakeLock } from '../ui/useWakeLock';
 
 export function Welcome({ onDone }: { onDone: () => void }) {
   const { device, llm } = useEngine();
@@ -23,6 +25,8 @@ export function Welcome({ onDone }: { onDone: () => void }) {
   };
 
   const loading = llm.state === 'loading';
+  useTitle('Welcome');
+  useWakeLock(started && loading);
   const percent = loading ? Math.round(llm.progress * 100) : llm.state === 'ready' ? 100 : 0;
   const downloadedMB = Math.round((percent / 100) * MODEL_DOWNLOAD_MB);
 

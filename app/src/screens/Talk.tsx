@@ -19,6 +19,7 @@ import { getSoul, saveSoul, useSouls, type ChatMessage, type Soul } from '../sto
 import { Back, Keyboard, Mic, Send } from '../ui/icons';
 import { Link } from '../ui/Link';
 import { Portrait } from '../ui/Portrait';
+import { useTitle } from '../ui/useTitle';
 
 type Mode = 'voice' | 'text';
 type Busy = null | 'hearing' | 'thinking' | 'remembering';
@@ -39,6 +40,7 @@ export function Talk({ id }: { id: string }) {
   const listener = useRef<Listening | null>(null);
   const releasedAt = useRef(0);
   const end = useRef<HTMLDivElement>(null);
+  useTitle(soul?.name ?? '');
 
   useEffect(() => {
     if (souls && !soul) navigate({ name: 'home' }, { replace: true });
@@ -203,11 +205,27 @@ export function Talk({ id }: { id: string }) {
             day: 'numeric',
           })}
         </p>
-        {soul.history.map((m, i) => (
-          <p key={i} className={`bubble bubble--${m.role === 'user' ? 'me' : 'it'}`}>
-            {m.content}
-          </p>
-        ))}
+        {soul.history.map((m, i) =>
+          m.role === 'user' ? (
+            <p key={i} className="bubble bubble--me">
+              {m.content}
+            </p>
+          ) : (
+            // Tapping something it said makes it say it again: easy for children who cannot read yet.
+            <button
+              key={i}
+              type="button"
+              className="bubble bubble--it bubble--replay"
+              onClick={() => {
+                stopSpeaking();
+                speak(m.content, soul);
+              }}
+            >
+              {m.content}
+              <span className="sr-only"> (say it again)</span>
+            </button>
+          ),
+        )}
         {pending && <p className="bubble bubble--me">{pending}</p>}
         {streaming !== null && (
           <p className="bubble bubble--it">

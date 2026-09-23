@@ -5,6 +5,8 @@ import { speak } from '../engine/voice';
 import { takePendingWake, wake, type WakeInput, type WakeProgress, type WakeStep } from '../engine/wake';
 import { navigate } from '../router';
 import { Check, Phone } from '../ui/icons';
+import { useTitle } from '../ui/useTitle';
+import { useWakeLock } from '../ui/useWakeLock';
 
 const STEPS: { step: WakeStep; title: string; detail: string }[] = [
   { step: 'look', title: 'Taking a good look', detail: 'What it is and what colour.' },
@@ -18,6 +20,8 @@ export function Waking() {
   const [progress, setProgress] = useState<WakeProgress>({ step: 'look' });
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  useTitle('Waking up');
+  useWakeLock(!error);
 
   useEffect(() => {
     if (!what) {

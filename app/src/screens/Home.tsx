@@ -5,6 +5,7 @@ import { Camera, Flame, Sliders } from '../ui/icons';
 import { Link } from '../ui/Link';
 import { Portrait } from '../ui/Portrait';
 import { shortWhen } from '../ui/time';
+import { useTitle } from '../ui/useTitle';
 
 const COUNT = ['No things', 'One thing', 'Two things', 'Three things', 'Four things', 'Five things'];
 
@@ -12,6 +13,7 @@ export function Home({ interrupted }: { interrupted: string[] }) {
   const souls = useSouls();
   const { llm } = useEngine();
   const count = souls?.length ?? 0;
+  useTitle('');
 
   return (
     <main className="screen">

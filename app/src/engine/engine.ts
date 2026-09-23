@@ -2,7 +2,7 @@
 // cleanest (ADR 0016), with a status the UI can watch.
 import { useSyncExternalStore } from 'react';
 import { probeDevice, type DeviceInfo } from './device';
-import { webLlmBackend, type LlmBackend } from './llm';
+import { isModelCached, webLlmBackend, type LlmBackend } from './llm';
 import { log, timed, withActivity } from './metrics';
 import { mockLlm, mockRequested, mockVision } from './mock';
 import { mediaPipeVision, type VisionBackend } from './vision';
@@ -92,3 +92,8 @@ export function ensureVision(): Promise<VisionBackend> {
 }
 
 export const loadedVision = () => vision;
+
+// True when the LLM can load without a download (the mock engine never downloads).
+export async function llmIsCached(): Promise<boolean> {
+  return state.mock || isModelCached(state.device?.shaderF16 ?? false);
+}

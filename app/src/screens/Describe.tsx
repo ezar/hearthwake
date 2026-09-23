@@ -4,10 +4,12 @@ import { unlockSpeech } from '../engine/voice';
 import { setPendingWake } from '../engine/wake';
 import { goBack, navigate } from '../router';
 import { Back } from '../ui/icons';
+import { useTitle } from '../ui/useTitle';
 
 export function Describe() {
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
+  useTitle('Describe it');
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
