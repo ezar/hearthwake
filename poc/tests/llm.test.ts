@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   CHAT_OPTIONS,
+  SOUL_SCHEMA,
   adaptMessages,
   clamp,
   compactMemory,
@@ -222,5 +223,25 @@ describe('describeFailedOutput', () => {
 
   it('marks empty output', () => {
     expect(describeFailedOutput('', null, 0)).toContain('Output: (empty)');
+  });
+});
+
+describe('SOUL_SCHEMA', () => {
+  it('bounds the traits list and every string, so a small model cannot loop until it runs out of tokens', () => {
+    const props = SOUL_SCHEMA.properties as Record<
+      string,
+      {
+        type: string;
+        maxLength?: number;
+        minItems?: number;
+        maxItems?: number;
+        items?: { maxLength?: number };
+      }
+    >;
+    expect(props.traits).toMatchObject({ minItems: 3, maxItems: 5, items: { maxLength: 30 } });
+    for (const [key, prop] of Object.entries(props)) {
+      if (prop.type === 'string') expect(prop.maxLength, key).toBeGreaterThan(0);
+    }
+    expect(SOUL_SCHEMA.required).toHaveLength(Object.keys(props).length);
   });
 });
