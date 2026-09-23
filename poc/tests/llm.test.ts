@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   CHAT_OPTIONS,
-  SOUL_SCHEMA,
   adaptMessages,
   clamp,
   compactMemory,
@@ -78,6 +77,14 @@ describe('normalizeSoul', () => {
     expect(soul.traits).toEqual(['curiosa', 'dramática', 'gruñona', 'amable', 'lenta']);
     expect(soul.pitch).toBe(1.6);
     expect(soul.rate).toBe(0.8);
+  });
+
+  it('maps voice words to pitch and rate, and lowercases traits', () => {
+    const soul = normalizeSoul({ ...raw, traits: ['Brave', 'Dad Bod', 'shy'], pitch: 'high', rate: 'slow' });
+    expect(soul.pitch).toBe(1.35);
+    expect(soul.rate).toBe(0.85);
+    expect(soul.traits).toEqual(['brave', 'dad bod', 'shy']);
+    expect(normalizeSoul({ ...raw, pitch: 'squeaky', rate: 'normal' })).toMatchObject({ pitch: 1, rate: 1 });
   });
 
   it('rejects souls without name or greeting', () => {
@@ -225,26 +232,6 @@ describe('describeFailedOutput', () => {
 
   it('marks empty output', () => {
     expect(describeFailedOutput('', null, 0)).toContain('Output: (empty)');
-  });
-});
-
-describe('SOUL_SCHEMA', () => {
-  it('bounds the traits list and every string, so a small model cannot loop until it runs out of tokens', () => {
-    const props = SOUL_SCHEMA.properties as Record<
-      string,
-      {
-        type: string;
-        maxLength?: number;
-        minItems?: number;
-        maxItems?: number;
-        items?: { maxLength?: number };
-      }
-    >;
-    expect(props.traits).toMatchObject({ minItems: 3, maxItems: 5, items: { maxLength: 20 } });
-    for (const [key, prop] of Object.entries(props)) {
-      if (prop.type === 'string') expect(prop.maxLength, key).toBeGreaterThan(0);
-    }
-    expect(SOUL_SCHEMA.required).toHaveLength(Object.keys(props).length);
   });
 });
 

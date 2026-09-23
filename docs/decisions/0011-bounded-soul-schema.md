@@ -1,6 +1,6 @@
 # 0011. Bound the soul schema and show a worked example
 
-Status: accepted, M0. Supersedes the schema-bounds part of ADR 0004.
+Status: accepted, M0. Supersedes the schema-bounds part of ADR 0004. Its JSON schema and worked example are superseded by ADR 0013.
 
 ## Context
 
