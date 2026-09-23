@@ -90,6 +90,9 @@ Which combination coexists on the iPhone, and which must be swapped: detector an
   - Llama-3.2-1B loaded in 38455 ms (a cold download) and the classifier in 2281 ms.
   - The classifier returned "sliding door 49%, wardrobe 10%, shoji 7%". The description, "An orange and grey sliding door.", took 80 ms.
   - `wake.createSoul` took 18123 ms and `wake.total` 58942 ms. Without the download, the wake would take about 20 s, with the soul as the slow part.
+- 2026-09-24, iPhone, Chrome for iOS, second wake with the models cached, camera at 720p: again no crash.
+  - Timings: LLM load 2072 ms, classifier load 109 ms, describe 90 ms ("A grey desk.": desk 21%, home theater 15%, television 14%).
+  - `wake.createSoul` took 17912 ms and **`wake.total` 20186 ms**, against a 12 s target. Soul generation takes almost all of it: 18 s here, against 4 to 14 s for text-only wakes in Safari.
   - Next: talk to the soul (text, then `SpeechRecognition`), and repeat the wake in Safari after force-quitting it, to tell a Safari limit from a worn-out process.
 
 ## Built-in AI on iOS
@@ -101,12 +104,12 @@ Which combination coexists on the iPhone, and which must be swapped: detector an
 | Metric | Target | iPhone | Desktop |
 | --- | --- | --- | --- |
 | `talk.firstAudioFromRelease` | < 4000 iPhone, < 2500 desktop | | |
-| `wake.total` | < 12000 iPhone | | |
+| `wake.total` | < 12000 iPhone | 20186 (Chrome iOS, cached) | |
 | Detection fps | >= 5 iPhone | ~15 (MediaPipe, WebGL) | |
 | `stt.transcribe` | | | |
 | `llm.firstToken` | | | |
 | `llm.fullReply` | | | |
-| `wake.describe` | | 3112 (SmolVLM) | |
+| `wake.describe` | | 80–90 (classifier), 3112 (SmolVLM) | |
 | `wake.createSoul` | | 3700–13400 (text-only wake, Llama 1B) | |
 | `memory.compact` | | | |
 
