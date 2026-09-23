@@ -65,6 +65,13 @@ Which combination coexists on the iPhone, and which must be swapped:
   - 26 English system voices, against 4 Spanish.
   - Fixed per the ADR 0011 amendment.
 
+- 2026-09-23, iPhone, Safari, Llama 3.2 1B, ADR 0011 amendment (bounded schema, umbrella example):
+  - The first LLM load killed the tab again; the second loaded in 1800 ms.
+  - 3 of 4 souls finished (5.7, 6.2, 13.4 s). One failed with `finish=length`, 511 tokens for 872 characters: whitespace and digits that the JSON-schema grammar allows.
+  - "Professor Thunderbolt": no stage directions, and the greeting ended on a full sentence. But it still copied the example ("Batten down the hatches, indeed."), ignored the appearance, and had odd traits ("Dad Bod").
+  - Replaced by a hand-written grammar with no example and one retry (ADR 0013).
+- A run just before this one used the previous build: the page loaded 26 s before the deploy finished. 5 of 5 souls in about 4 s, but it copied the teacup example.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.

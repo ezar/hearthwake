@@ -1,6 +1,7 @@
 // On-device LLM through WebLLM: model list, loading, soul creation, dialogue and memory compaction.
 import type { ChatCompletion, ChatCompletionRequestNonStreaming, MLCEngine } from '@mlc-ai/web-llm';
 import { log, record, timed } from './report';
+import { PITCHES, RATES, SOUL_FIELD_LIMITS, SOUL_GRAMMAR } from './soul-grammar';
 import type { ChatMessage, Soul, SoulProfile } from './souls';
 
 export interface ModelOption {
@@ -106,54 +107,6 @@ function requireEngine(): MLCEngine {
 
 // Soul creation.
 
-// Every string and the traits list are bounded. On the iPhone, Gemma 3 1B looped inside an unbounded
-// traits array until it ran out of tokens. The bundled XGrammar honours these keywords (ADR 0011).
-const text_ = (maxLength: number) => ({ type: 'string', maxLength });
-export const SOUL_SCHEMA = {
-  type: 'object',
-  properties: {
-    name: text_(30),
-    title: text_(40),
-    archetype: text_(40),
-    traits: { type: 'array', items: text_(20), minItems: 3, maxItems: 5 },
-    style: text_(80),
-    catchphrase: text_(60),
-    secret: text_(80),
-    pitch: { type: 'number' },
-    rate: { type: 'number' },
-    greeting: text_(140),
-  },
-  required: [
-    'name',
-    'title',
-    'archetype',
-    'traits',
-    'style',
-    'catchphrase',
-    'secret',
-    'pitch',
-    'rate',
-    'greeting',
-  ],
-};
-
-// One complete soul, so small models see the shape and tone instead of guessing from field names. It is
-// deliberately unlike household warmth or kitchens: Llama 3.2 1B copied details from a teacup example
-// ("golden handle", "Nice and toasty!") into a radiator's soul.
-const SOUL_EXAMPLE_OBJECT = 'an old blue umbrella';
-const SOUL_EXAMPLE = {
-  name: 'Captain Drizzle',
-  title: 'Guardian of the Hallway',
-  archetype: 'Retired sea captain',
-  traits: ['brave', 'forgetful', 'proud'],
-  style: 'Talks like a ship captain and hates being folded.',
-  catchphrase: 'Batten down the hatches!',
-  secret: 'He is afraid of strong wind.',
-  pitch: 0.8,
-  rate: 0.95,
-  greeting: 'Ahoy! Who woke me? My blue canopy is still dry, so all is well aboard!',
-};
-
 // Returns the first balanced {...} block, ignoring braces inside strings.
 export function extractFirstObject(text: string): string | null {
   const start = text.indexOf('{');
@@ -215,6 +168,11 @@ export function endAtSentence(value: string): string {
   return last?.index === undefined ? value : value.slice(0, last.index + last[0].length);
 }
 
+// The grammar asks for voice words; souls saved before it store numbers, which are still clamped.
+function voiceValue(value: unknown, words: Record<string, number>, min: number, max: number): number {
+  return typeof value === 'string' && value in words ? words[value]! : clamp(value, min, max, 1);
+}
+
 export function normalizeSoul(raw: unknown): SoulProfile {
   if (!raw || typeof raw !== 'object') throw new Error('The generated soul is not an object');
   const r = raw as Record<string, unknown>;
@@ -222,25 +180,44 @@ export function normalizeSoul(raw: unknown): SoulProfile {
     name: text(r.name),
     title: text(r.title),
     archetype: text(r.archetype),
-    traits: Array.isArray(r.traits) ? r.traits.map(text).filter(Boolean).slice(0, 5) : [],
+    traits: Array.isArray(r.traits)
+      ? r.traits
+          .map(t => text(t).toLowerCase())
+          .filter(Boolean)
+          .slice(0, 5)
+      : [],
     style: text(r.style),
     catchphrase: text(r.catchphrase),
     secret: text(r.secret),
-    pitch: clamp(r.pitch, 0.6, 1.6, 1),
-    rate: clamp(r.rate, 0.8, 1.2, 1),
+    pitch: voiceValue(r.pitch, PITCHES, 0.6, 1.6),
+    rate: voiceValue(r.rate, RATES, 0.8, 1.2),
     greeting: endAtSentence(text(r.greeting)),
   };
   if (!soul.name || !soul.greeting) throw new Error('The generated soul has no name or greeting');
   return soul;
 }
 
+const SOUL_ATTEMPTS = 2;
+
+// Generates a soul, retrying once: on the iPhone about one reply in four still failed before the grammar.
 export async function createSoul(label: string, description: string): Promise<SoulProfile> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await generateSoul(label, description);
+    } catch (e) {
+      if (attempt >= SOUL_ATTEMPTS) throw e;
+      log(`Soul attempt ${attempt} failed (${(e as Error).message}), retrying`);
+    }
+  }
+}
+
+async function generateSoul(label: string, description: string): Promise<SoulProfile> {
+  const L = SOUL_FIELD_LIMITS;
   const reply = await requireEngine().chat.completions.create({
     temperature: 0.9,
-    // At most about 570 characters of values; JSON in English measured about 2 characters per token on the
-    // iPhone, so 512 tokens covers the worst case.
+    // The grammar allows at most about 710 characters with no free whitespace, well under 512 tokens.
     max_tokens: 512,
-    response_format: { type: 'json_object', schema: JSON.stringify(SOUL_SCHEMA) },
+    response_format: { type: 'grammar', grammar: SOUL_GRAMMAR },
     messages: forModel([
       {
         role: 'system',
@@ -250,16 +227,22 @@ export async function createSoul(label: string, description: string): Promise<So
       },
       {
         role: 'user',
+        // No worked example: Llama 3.2 1B copied its details into every soul (ADR 0013).
         content:
-          `Example for ${SOUL_EXAMPLE_OBJECT}:\n` +
-          `${JSON.stringify(SOUL_EXAMPLE)}\n\n` +
-          `Now the real object. Object: ${label}. Looks: ${description}\n\n` +
-          'Create its soul in English. Do not reuse any name, phrase or detail from the example. ' +
-          'An original, funny proper name; a short epic title; an archetype in a few words; 3 to 5 one-word ' +
-          'personality traits; style says in one short sentence how it talks; a short catchphrase; a harmless ' +
-          'secret; pitch between 0.6 and 1.6 and rate between 0.8 and 1.2 to suit its character. The greeting ' +
-          'is one or two short sentences it says on waking up, a hello and not a goodbye, and it must mention ' +
-          `how it looks (${description}). No stage directions, no text in brackets or asterisks.`,
+          `Object: ${label}. Looks: ${description}\n\n` +
+          'Create the soul of this object in English, as JSON with these fields:\n' +
+          `- name: an original, funny proper name (up to ${L.name} characters)\n` +
+          `- title: a short epic title (up to ${L.title})\n` +
+          `- archetype: a character type in a few words (up to ${L.archetype})\n` +
+          `- traits: 3 to 5 one-word personality traits (up to ${L.trait} each)\n` +
+          `- style: one short sentence on how it talks (up to ${L.style})\n` +
+          `- catchphrase: a short catchphrase (up to ${L.catchphrase})\n` +
+          `- secret: a harmless secret (up to ${L.secret})\n` +
+          '- pitch: low, medium or high, to suit its character\n' +
+          '- rate: slow, normal or fast, to suit its character\n' +
+          `- greeting: one or two short sentences it says on waking up, a hello and not a goodbye, that mention ` +
+          `how it looks (${description}) (up to ${L.greeting})\n` +
+          'No stage directions and no text in brackets or asterisks.',
       },
     ]),
   });
@@ -268,7 +251,7 @@ export async function createSoul(label: string, description: string): Promise<So
   try {
     return normalizeSoul(parseJson(text));
   } catch (e) {
-    // Small models can run out of tokens mid-JSON; log what came back so the cause is visible.
+    // Log what came back so the cause is visible.
     log(describeFailedOutput(text, choice?.finish_reason ?? null, reply.usage?.completion_tokens ?? null));
     if (choice?.finish_reason === 'length')
       throw new Error('The model ran out of tokens before finishing the soul', { cause: e });
