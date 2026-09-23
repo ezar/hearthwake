@@ -29,9 +29,18 @@
         <p class="hint">
           Carga uno cada vez. Si Safari recarga la página, se ha quedado sin memoria: anótalo.
         </p>
+        <label class="check">
+          <input id="phases" type="checkbox" checked />
+          Cargar por fases: la visión solo mientras despierta un objeto y el oído después
+        </label>
 
         <div class="model">
-          <div><strong>Detector</strong><span>YOLOS tiny · objetos comunes</span></div>
+          <div><strong>Detector</strong><span>YOLOS tiny · objetos comunes · opcional</span></div>
+          <label class="sr-only" for="detector-device">Dónde ejecutar el detector</label>
+          <select id="detector-device" disabled>
+            <option value="webgpu" selected>En la GPU (WebGPU)</option>
+            <option value="wasm">En la CPU (más lento, sin GPU)</option>
+          </select>
           <div class="actions">
             <button data-load="detector" disabled>Cargar</button>
             <button data-free="detector" disabled>Liberar</button>
@@ -63,8 +72,8 @@
           <div><strong>Oído</strong><span>Whisper · transcribe lo que dices</span></div>
           <label class="sr-only" for="stt-model">Modelo de transcripción</label>
           <select id="stt-model" disabled>
-            <option value="onnx-community/whisper-tiny">whisper-tiny (~40 MB)</option>
-            <option value="onnx-community/whisper-base" selected>whisper-base (~80 MB)</option>
+            <option value="onnx-community/whisper-tiny" selected>whisper-tiny (~40 MB)</option>
+            <option value="onnx-community/whisper-base">whisper-base (~80 MB)</option>
           </select>
           <div class="actions">
             <button data-load="stt" disabled>Cargar</button>

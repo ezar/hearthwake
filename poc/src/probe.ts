@@ -13,6 +13,8 @@ export interface ProbeResult {
   limitsMB: { maxBufferSize: number; maxStorageBufferBindingSize: number } | null;
   webgpuError?: string;
   mediaRecorderTypes: string[];
+  // Built-in browser AI, if any: an on-device LLM (the Prompt API's LanguageModel) and speech recognition.
+  builtIn: { languageModel: boolean; speechRecognition: boolean };
 }
 
 const toMB = (bytes: number) => Math.round(bytes / 1048576);
@@ -30,6 +32,10 @@ export async function probeDevice(): Promise<ProbeResult> {
     gpu: null,
     limitsMB: null,
     mediaRecorderTypes: RECORDER_TYPES.filter(t => self.MediaRecorder?.isTypeSupported?.(t)),
+    builtIn: {
+      languageModel: 'LanguageModel' in self,
+      speechRecognition: 'SpeechRecognition' in self || 'webkitSpeechRecognition' in self,
+    },
   };
 
   if (navigator.storage?.estimate) {

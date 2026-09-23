@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  adaptMessages,
   clamp,
   compactMemory,
   extractFirstObject,
@@ -105,10 +106,12 @@ describe('filterModels', () => {
     { model_id: 'Qwen3-1.7B-q4f16_1-MLC', vram_required_MB: 2000 },
     { model_id: 'gemma-2-2b-it-q4f16_1-MLC', vram_required_MB: 2000 },
     { model_id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', vram_required_MB: 1100 },
+    { model_id: 'gemma3-1b-it-q4f16_1-MLC', vram_required_MB: 711 },
   ];
 
   it('keeps wanted families with the right quantization, sorted by memory', () => {
     expect(filterModels(list, true).map(m => m.id)).toEqual([
+      'gemma3-1b-it-q4f16_1-MLC',
       'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
       'Llama-3.2-1B-Instruct-q4f16_1-MLC',
       'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
@@ -166,5 +169,30 @@ describe('memory compaction', () => {
     const out = await compactMemory(soul(turns(17), 'Recuerdo viejo.'), engine);
     expect(out.memory).toBe('Recuerdo viejo.');
     expect(out.history).toHaveLength(6);
+  });
+});
+
+describe('adaptMessages', () => {
+  const system = { role: 'system' as const, content: 'Eres Lola.' };
+  const user = { role: 'user' as const, content: 'Hola' };
+  const assistant = { role: 'assistant' as const, content: '¡Hola!' };
+
+  it('leaves models with a system role untouched', () => {
+    const messages = [system, user];
+    expect(adaptMessages('Llama-3.2-1B-Instruct-q4f16_1-MLC', messages)).toBe(messages);
+  });
+
+  it('folds the system prompt into the first user turn for Gemma', () => {
+    expect(adaptMessages('gemma3-1b-it-q4f16_1-MLC', [system, user, assistant, user])).toEqual([
+      { role: 'user', content: 'Eres Lola.\n\nHola' },
+      assistant,
+      user,
+    ]);
+  });
+
+  it('turns a lone system prompt into a user turn for Gemma', () => {
+    expect(adaptMessages('gemma3-1b-it-q4f16_1-MLC', [system])).toEqual([
+      { role: 'user', content: 'Eres Lola.' },
+    ]);
   });
 });

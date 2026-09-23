@@ -1,7 +1,7 @@
 // Camera, live object detection, overlay drawing, selection and cropping.
 import type { RawImage as RawImageType } from '@huggingface/transformers';
 import { log, record, timed } from './report';
-import { runtime } from './runtime';
+import { runtime, type Device } from './runtime';
 
 export interface Box {
   xmin: number;
@@ -107,17 +107,15 @@ function resize(): void {
   draw();
 }
 
-export async function loadDetector(): Promise<void> {
+// The device defaults to the probe's, but the tester can force WASM to rule out a WebGPU problem.
+export async function loadDetector(device: Device = runtime.device): Promise<void> {
   const tf = await import('@huggingface/transformers');
   RawImage = tf.RawImage;
-  const dtype = runtime.device === 'webgpu' ? 'fp32' : 'q8';
+  const dtype = device === 'webgpu' ? 'fp32' : 'q8';
   detector = await timed(
-    'load.detector',
+    `load.detector.${device}`,
     async () =>
-      (await tf.pipeline('object-detection', 'Xenova/yolos-tiny', {
-        device: runtime.device,
-        dtype,
-      })) as unknown as Detector,
+      (await tf.pipeline('object-detection', 'Xenova/yolos-tiny', { device, dtype })) as unknown as Detector,
   );
 }
 

@@ -16,7 +16,7 @@ import {
   restoreAfterCrash,
   timed,
 } from './report';
-import { runtime } from './runtime';
+import { runtime, type Device } from './runtime';
 import * as souls from './souls';
 import type { Soul } from './souls';
 import * as vlm from './vlm';
@@ -51,8 +51,10 @@ window.addEventListener('unhandledrejection', e => log(`Unhandled rejection: ${d
 
 const crash = restoreAfterCrash();
 const crashNotice = crash
-  ? `La última sesión se cerró durante «${crash.label}», seguramente por falta de memoria. Queda en el informe.`
+  ? `La última sesión se cerró durante «${crash.map(a => a.label).join(' + ')}», seguramente por falta de memoria. ` +
+    'Queda en el informe.'
   : '';
+const crashedModels = new Set(crash?.map(a => a.model));
 
 function setStatus(key: ModelKey, text: string, isError = false): void {
   const el = $(`st-${key}`);
@@ -72,11 +74,13 @@ function refreshButtons(): void {
   button('load-llm').disabled ||= !hasWebGpu;
   $<HTMLSelectElement>('llm-model').disabled = !started || busy || !hasWebGpu;
   $<HTMLSelectElement>('stt-model').disabled = !started || busy;
+  $<HTMLSelectElement>('detector-device').disabled = !started || busy || runtime.device !== 'webgpu';
   button('btn-start').disabled = busy;
   button('btn-camera').disabled = !started || busy || cameraOpen;
   button('btn-detect').disabled = !cameraOpen || !loaded.detector;
   button('btn-center').disabled = !cameraOpen;
-  button('btn-wake').disabled = busy || !cam.getSelected() || !loaded.vlm || !loaded.llm;
+  // In phases mode waking loads and frees the vision model itself.
+  button('btn-wake').disabled = busy || !cam.getSelected() || !loaded.llm || (!phases() && !loaded.vlm);
   const canTalk = !busy && !!soul && !!loaded.llm;
   button('btn-talk').disabled = !canTalk || !loaded.stt;
   $<HTMLInputElement>('text-input').disabled = !canTalk;
@@ -88,17 +92,18 @@ function refreshButtons(): void {
 
 // Runs a heavy step with actions disabled. The activity label is persisted while it runs, so if iOS
 // kills the tab for lack of memory the next visit can say what was happening.
-async function withBusy(activity: string, fn: () => Promise<void>, model?: ModelKey): Promise<void> {
+// Steps that mark themselves (model loads) pass null.
+async function withBusy(activity: string | null, fn: () => Promise<void>): Promise<void> {
   busy = true;
   refreshButtons();
-  beginActivity(activity, model);
+  const marker = activity === null ? null : beginActivity(activity);
   try {
     await fn();
   } catch (e) {
     log(`Error: ${(e as Error).message}`);
     console.error(e);
   } finally {
-    endActivity();
+    if (marker !== null) endActivity(marker);
     busy = false;
     refreshButtons();
   }
@@ -115,7 +120,7 @@ button('btn-start').addEventListener('click', () =>
     log(`Runtime: ${runtime.device}${runtime.f16 ? ' + fp16' : ''}`);
     if (!probe.webgpu)
       setStatus('llm', 'Necesita WebGPU: en este navegador no se puede despertar ni hablar', true);
-    else if (!loaded.llm && crash?.model !== 'llm') setStatus('llm', 'Sin cargar');
+    else if (!loaded.llm && !crashedModels.has('llm')) setStatus('llm', 'Sin cargar');
 
     const models = await llm.listModels(runtime.f16);
     const picker = $<HTMLSelectElement>('llm-model');
@@ -138,7 +143,7 @@ function selectedModel(key: ModelKey): string {
 
 const loaders: Record<ModelKey, () => Promise<string>> = {
   detector: async () => {
-    await cam.loadDetector();
+    await cam.loadDetector(detectorDevice());
     return selectedModel('detector');
   },
   vlm: async () => {
@@ -159,6 +164,16 @@ const loaders: Record<ModelKey, () => Promise<string>> = {
   },
 };
 
+// The detector can be forced onto the CPU to tell a WebGPU problem from a memory one.
+const detectorDevice = (): Device =>
+  runtime.device === 'webgpu' && $<HTMLSelectElement>('detector-device').value === 'webgpu'
+    ? 'webgpu'
+    : 'wasm';
+const deviceFor = (key: ModelKey): Device => (key === 'detector' ? detectorDevice() : runtime.device);
+
+// Phases mode keeps only what the current step needs in memory (ADR 0008).
+const phases = () => $<HTMLInputElement>('phases').checked;
+
 const unloaders: Record<ModelKey, () => Promise<void>> = {
   detector: () => cam.unloadDetector(),
   vlm: () => vlm.unloadVLM(),
@@ -172,38 +187,39 @@ for (const key of MODEL_KEYS) {
   load.id = `load-${key}`;
   free.id = `free-${key}`;
 
-  load.addEventListener('click', () =>
-    withBusy(
-      `load ${key} ${selectedModel(key)}`,
-      async () => {
-        setStatus(key, `Cargando en ${runtime.device}…`);
-        const start = performance.now();
-        try {
-          // Loading over a loaded model frees the old one first, so memory figures stay honest.
-          if (loaded[key] && key !== 'llm') await unloaders[key]();
-          loaded[key] = await loaders[key]();
-          const seconds = ((performance.now() - start) / 1000).toFixed(1);
-          setStatus(key, `${loaded[key]!.split('/').pop()} en ${runtime.device}, ${seconds} s`);
-          void showStorageUsage();
-        } catch (e) {
-          loaded[key] = null;
-          setStatus(key, (e as Error).message, true);
-          throw e;
-        }
-      },
-      key,
-    ),
-  );
+  load.addEventListener('click', () => withBusy(null, () => loadModel(key)));
+  free.addEventListener('click', () => withBusy(`free ${key}`, () => freeModel(key)));
+}
 
-  free.addEventListener('click', () =>
-    withBusy(`free ${key}`, async () => {
-      if (key === 'detector') stopDetectionUi();
-      await unloaders[key]();
-      loaded[key] = null;
-      setStatus(key, 'Liberado');
-      log(`Unloaded ${key}`);
-    }),
-  );
+// Loads one model, freeing its previous instance first so memory figures stay honest.
+async function loadModel(key: ModelKey): Promise<void> {
+  const marker = beginActivity(`load ${key} ${selectedModel(key)}`, key);
+  const device = deviceFor(key);
+  setStatus(key, `Cargando en ${device}…`);
+  const start = performance.now();
+  try {
+    if (loaded[key] && key !== 'llm') await unloaders[key]();
+    loaded[key] = await loaders[key]();
+    const seconds = ((performance.now() - start) / 1000).toFixed(1);
+    setStatus(key, `${loaded[key]!.split('/').pop()} en ${device}, ${seconds} s`);
+    void showStorageUsage();
+  } catch (e) {
+    loaded[key] = null;
+    setStatus(key, (e as Error).message, true);
+    throw e;
+  } finally {
+    endActivity(marker);
+    refreshButtons();
+  }
+}
+
+async function freeModel(key: ModelKey): Promise<void> {
+  if (key === 'detector') stopDetectionUi();
+  await unloaders[key]();
+  loaded[key] = null;
+  setStatus(key, 'Liberado');
+  log(`Unloaded ${key}`);
+  refreshButtons();
 }
 
 // Downloaded models: show what the origin stores and let the tester wipe it.
@@ -251,15 +267,32 @@ button('btn-camera').addEventListener('click', () =>
   }),
 );
 
+// Detection runs outside the busy flag, so it keeps its own crash marker while the loop is alive.
+let detectMarker: number | null = null;
+
+function endDetectMarker(): void {
+  if (detectMarker !== null) endActivity(detectMarker);
+  detectMarker = null;
+}
+
 function onDetectionStats(s: cam.DetectionStats | null): void {
   $('det-stats').textContent = s
     ? `${s.fps} fps, ${s.ms} ms por fotograma, ${s.count} objetos`
     : 'Detector parado';
-  if (!s) button('btn-detect').textContent = 'Detectar';
+  if (!s) {
+    button('btn-detect').textContent = 'Detectar';
+    endDetectMarker();
+  }
 }
 
 function startDetectionUi(): void {
-  cam.startDetection(onDetectionStats);
+  detectMarker ??= beginActivity(`detect on ${detectorDevice()}`, 'detector');
+  try {
+    cam.startDetection(onDetectionStats);
+  } catch (e) {
+    endDetectMarker();
+    throw e;
+  }
   button('btn-detect').textContent = 'Parar';
 }
 
@@ -279,20 +312,27 @@ button('btn-detect').addEventListener('click', () => {
 
 button('btn-center').addEventListener('click', () => cam.selectCentre());
 
-// Waking a thing: crop, describe, create the soul, greet.
+// Waking a thing: crop, describe, create the soul, greet. In phases mode the detector and hearing are
+// freed first, vision is loaded only for the description, and hearing comes back after the greeting.
 button('btn-wake').addEventListener('click', () =>
   withBusy('wake', async () => {
     const sel = cam.getSelected();
     const crop = cam.cropSelected();
     if (!sel || !crop) throw new Error('No hay imagen de la cámara');
+    const staged = phases();
     // Detection is paused so the wake timings measure the models alone.
     const wasDetecting = cam.isDetecting();
     if (wasDetecting) stopDetectionUi();
     const start = performance.now();
-    log(`Waking ${sel.label}…`);
+    log(`Waking ${sel.label}${staged ? ' (phases)' : ''}…`);
     try {
+      if (staged) {
+        for (const key of ['detector', 'stt'] as const) if (loaded[key]) await freeModel(key);
+      }
+      if (!loaded.vlm) await loadModel('vlm');
       const description = await timed('wake.describe', () => vlm.describe(crop));
       log(`VLM: ${description}`);
+      if (staged) await freeModel('vlm');
       const profile = await timed('wake.createSoul', () => llm.createSoul(sel.label, description));
       soul = {
         ...profile,
@@ -307,13 +347,14 @@ button('btn-wake').addEventListener('click', () =>
       souls.saveSoul(soul);
       record('wake.total', performance.now() - start);
     } finally {
-      if (wasDetecting && loaded.detector) startDetectionUi();
+      if (wasDetecting && loaded.detector && !staged) startDetectionUi();
     }
     renderSoulList();
     $('transcript').replaceChildren();
     renderSoul(true);
     addBubble('soul', soul.greeting);
     voice.speak(soul.greeting, soul);
+    if (staged && !loaded.stt) await loadModel('stt');
   }),
 );
 
@@ -486,9 +527,11 @@ button('btn-report').addEventListener('click', async () => {
 
 if (crash) {
   $('probe-out').textContent = `${crashNotice} Pulsa Iniciar para seguir.`;
-  const key = MODEL_KEYS.find(k => k === crash.model);
-  if (key) setStatus(key, 'La última vez se cerró cargando este modelo', true);
+  for (const key of MODEL_KEYS) {
+    if (crashedModels.has(key)) setStatus(key, 'La última vez se cerró con este modelo en marcha', true);
+  }
 }
+$<HTMLInputElement>('phases').addEventListener('change', refreshButtons);
 renderSoulList();
 refreshButtons();
 void showStorageUsage();

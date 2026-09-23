@@ -28,6 +28,12 @@ Which combination coexists on the iPhone, and which must be swapped:
 - The same sessions logged `SyntaxError: The string did not match the expected pattern` two to four times at startup, before any model was loaded. Not reproducible in Chromium; error logging now includes file, line and stack to locate it.
 - 2026-09-23, iPhone, Safari, context window 2048, fresh page: Llama-3.2-1B-Instruct-q4f16_1-MLC loaded alone in 2440 ms (weights cached). Loading whisper-base on top killed the tab. **LLM (1B) and whisper-base do not coexist.** Next: Llama-3.2-1B with whisper-tiny, then Qwen2.5-0.5B with whisper-tiny.
 - The startup `SyntaxError` is an unhandled promise rejection with no stack. It also appeared once with no user action. That message is what Safari's `Response.json()` throws on a non-JSON body, so `Response.json()` is now instrumented to log the URL, status, body start and caller (`poc/src/diagnostics.ts`).
+- 2026-09-23, iPhone, Safari: the tab was killed as soon as detection started (models loaded at the time not recorded, because detection had no crash marker yet). Since ADR 0008 detection is marked, and the detector can run on the CPU to tell WebGPU from memory.
+- Since ADR 0008/0009 the defaults are phases on, Llama-3.2-1B and whisper-tiny. Next run: wake an object with "Usar el centro" (no detector) and talk to it.
+
+## Built-in AI on iOS
+
+- The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.
 
 ## Headline metrics
 
