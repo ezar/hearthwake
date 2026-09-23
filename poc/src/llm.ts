@@ -1,6 +1,6 @@
 // On-device LLM through WebLLM: model list, loading, soul creation, dialogue and memory compaction.
 import type { ChatCompletion, ChatCompletionRequestNonStreaming, MLCEngine } from '@mlc-ai/web-llm';
-import { record, timed } from './report';
+import { log, record, timed } from './report';
 import type { ChatMessage, Soul, SoulProfile } from './souls';
 
 export interface ModelOption {
@@ -220,7 +220,31 @@ export async function createSoul(label: string, description: string): Promise<So
       },
     ]),
   });
-  return normalizeSoul(parseJson(reply.choices[0]?.message.content ?? ''));
+  const choice = reply.choices[0];
+  const text = choice?.message.content ?? '';
+  try {
+    return normalizeSoul(parseJson(text));
+  } catch (e) {
+    // Small models can run out of tokens mid-JSON; log what came back so the cause is visible.
+    log(describeFailedOutput(text, choice?.finish_reason ?? null, reply.usage?.completion_tokens ?? null));
+    if (choice?.finish_reason === 'length')
+      throw new Error('El modelo se quedó sin espacio antes de terminar el alma', { cause: e });
+    throw e;
+  }
+}
+
+// A one-line summary of a reply that could not be parsed: why it stopped, its size, its start and end.
+export function describeFailedOutput(
+  text: string,
+  finishReason: string | null,
+  tokens: number | null,
+): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const preview = flat.length > 320 ? `${flat.slice(0, 200)} … ${flat.slice(-100)}` : flat;
+  return (
+    `Soul JSON failed: finish=${finishReason ?? '?'}, ${tokens ?? '?'} tokens, ${text.length} chars. ` +
+    `Output: ${preview || '(empty)'}`
+  );
 }
 
 // Dialogue.

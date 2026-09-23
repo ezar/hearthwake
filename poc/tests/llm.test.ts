@@ -4,6 +4,7 @@ import {
   adaptMessages,
   clamp,
   compactMemory,
+  describeFailedOutput,
   extractFirstObject,
   filterModels,
   needsCompaction,
@@ -202,5 +203,24 @@ describe('CHAT_OPTIONS', () => {
   it('never sets both a context window and a sliding window (WebLLM rejects that for Gemma 3)', () => {
     expect(CHAT_OPTIONS.context_window_size).toBe(2048);
     expect(CHAT_OPTIONS.sliding_window_size).toBe(-1);
+  });
+});
+
+describe('describeFailedOutput', () => {
+  it('reports why generation stopped, its size and a flattened preview', () => {
+    expect(describeFailedOutput('{\n  "name": "Remy",\n  "title": "Guar', 'length', 400)).toBe(
+      'Soul JSON failed: finish=length, 400 tokens, 36 chars. Output: { "name": "Remy", "title": "Guar',
+    );
+  });
+
+  it('keeps the start and end of long outputs', () => {
+    const out = describeFailedOutput(`{${'a'.repeat(500)}}`, 'stop', null);
+    expect(out).toContain('finish=stop, ? tokens, 502 chars');
+    expect(out).toContain(' … ');
+    expect(out.length).toBeLessThan(420);
+  });
+
+  it('marks empty output', () => {
+    expect(describeFailedOutput('', null, 0)).toContain('Output: (empty)');
   });
 });

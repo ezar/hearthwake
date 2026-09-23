@@ -46,6 +46,11 @@ Which combination coexists on the iPhone, and which must be swapped:
 - 2026-09-23, iPhone, Safari, "Despertar sin cámara" with a fresh page and only the LLM loaded (presumably Llama-3.2-1B, the default): **the LLM generated a soul without crashing.** It was the first generation to finish on the iPhone. The Spanish was weak: the greeting opened with "¡Hasta luego, amigo mío!", invented "la familia Smith" and ignored the description ("Blanco, aluminio"), the archetype was "Amor", there were only 2 traits, and the catchphrase had a typo ("¡Atreza a los fuegos artificiales!"). Timings still to be copied from the report.
 - Gemma 3 1B failed to load with `WindowSizeConfigurationError` (context window 2048 and sliding window 512 both positive). Fixed in the ADR 0005 amendment.
 
+- 2026-09-23, iPhone, Safari, fresh page, text-only wake with Gemma 3 1B (after the sliding-window fix):
+  - The first load attempt killed the tab. The second loaded in 2954 ms.
+  - Two generations ran without crashing (`wake.createSoul` 13.7 s and 13.9 s), but both failed with "El modelo no devolvió JSON válido".
+  - The raw output was not logged. It now is, with the finish reason and token count, to tell a truncated reply (400-token cap) from malformed JSON.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.
