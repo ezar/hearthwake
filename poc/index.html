@@ -112,6 +112,21 @@
           <span id="selected">Toca un objeto enmarcado, o usa el centro si no lo reconoce.</span>
         </p>
         <button id="btn-wake" class="primary wide" disabled>Despertar objeto</button>
+        <details class="text-wake">
+          <summary>Despertar sin cámara</summary>
+          <div class="fields">
+            <p class="hint">Solo usa el LLM: sirve para probarlo sin cargar nada más.</p>
+            <label for="text-label">Qué es</label>
+            <input id="text-label" placeholder="radiador" autocomplete="off" />
+            <label for="text-description">Cómo es (opcional)</label>
+            <textarea
+              id="text-description"
+              rows="2"
+              placeholder="Blanco, de aluminio, bajo la ventana."
+            ></textarea>
+            <button id="btn-wake-text" class="primary wide" disabled>Despertar sin cámara</button>
+          </div>
+        </details>
       </section>
 
       <section class="panel" aria-labelledby="h-soul">

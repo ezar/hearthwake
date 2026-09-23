@@ -33,6 +33,16 @@ Which combination coexists on the iPhone, and which must be swapped:
 - Probe on the iPhone: `builtIn.languageModel` false, `builtIn.speechRecognition` true. Safari exposes no on-device LLM to pages.
 - Since ADR 0008/0009 the defaults are phases on, Llama-3.2-1B and whisper-tiny. Next run: wake an object with "Usar el centro" (no detector) and talk to it.
 
+- 2026-09-23, iPhone, Edge, cold caches: YOLOS on WebGPU killed the tab again when detection started. Vision failed to download twice (`Load failed` after 84 s and 51 s), which is WebKit's generic network error. The startup `SyntaxError` never appeared in Edge, so it comes from Safari, not the app.
+- 2026-09-23, iPhone, Safari, MediaPipe detector (ADR 0010):
+  - **Detection works:** MediaPipe on WebGL, 500 frames at 56 ms median per frame (about 15 fps, range 27 to 252 ms), no crash. Loads in 129 to 462 ms from cache (4392 ms cold).
+  - **Vision works:** loads in 0.8 to 1 s from cache, and `wake.describe` takes 6 s ("The door is white and closed.").
+  - **The LLM is the blocker:**
+    - Loading Llama-3.2-1B with the detector and vision loaded killed the tab twice.
+    - With only the LLM loaded, phases mode loaded vision, described, freed vision, and the tab died about 2 s into soul generation.
+    - With the LLM and vision both loaded, the tab died as soon as waking started.
+  - Llama-3.2-1B alone loads in 1.8 to 4.8 s. Generation with nothing else loaded since the page opened is still untested; "Despertar sin cámara" exists for that test.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.

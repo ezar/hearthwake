@@ -86,6 +86,7 @@ function refreshButtons(): void {
   button('btn-center').disabled = !cameraOpen;
   // In phases mode waking loads and frees the vision model itself.
   button('btn-wake').disabled = busy || !cam.getSelected() || !loaded.llm || (!phases() && !loaded.vlm);
+  button('btn-wake-text').disabled = busy || !loaded.llm || !$<HTMLInputElement>('text-label').value.trim();
   const canTalk = !busy && !!soul && !!loaded.llm;
   button('btn-talk').disabled = !canTalk || !loaded.stt;
   $<HTMLInputElement>('text-input').disabled = !canTalk;
@@ -341,30 +342,66 @@ button('btn-wake').addEventListener('click', () =>
       const description = await timed('wake.describe', () => vlm.describe(crop));
       log(`VLM: ${description}`);
       if (staged) await freeModel('vlm');
-      const profile = await timed('wake.createSoul', () => llm.createSoul(sel.label, description));
-      soul = {
-        ...profile,
-        id: crypto.randomUUID(),
-        label: sel.label,
-        description,
-        thumbnail: crop.toDataURL('image/jpeg', 0.7),
-        memory: '',
-        history: [{ role: 'assistant', content: profile.greeting }],
-        createdAt: Date.now(),
-      };
-      souls.saveSoul(soul);
+      await createSoul(sel.label, description, crop.toDataURL('image/jpeg', 0.7));
       record('wake.total', performance.now() - start);
     } finally {
       if (wasDetecting && loaded.detector && !staged) startDetectionUi();
     }
-    renderSoulList();
-    $('transcript').replaceChildren();
-    renderSoul(true);
-    addBubble('soul', soul.greeting);
-    voice.speak(soul.greeting, soul);
+    greet();
     if (staged && !loaded.stt) await loadModel('stt');
   }),
 );
+
+// Waking without the camera: the tester types what the thing is and looks like. Only the LLM runs, and
+// nothing else is loaded afterwards, so this measures LLM generation on its own (docs/models.md).
+button('btn-wake-text').addEventListener('click', () =>
+  withBusy('wake from text', async () => {
+    const label = $<HTMLInputElement>('text-label').value.trim();
+    const description = $<HTMLTextAreaElement>('text-description').value.trim() || label;
+    log(`Waking ${label} from text…`);
+    await createSoul(label, description, placeholderThumbnail(label));
+    greet();
+  }),
+);
+
+async function createSoul(label: string, description: string, thumbnail: string): Promise<void> {
+  const profile = await timed('wake.createSoul', () => llm.createSoul(label, description));
+  soul = {
+    ...profile,
+    id: crypto.randomUUID(),
+    label,
+    description,
+    thumbnail,
+    memory: '',
+    history: [{ role: 'assistant', content: profile.greeting }],
+    createdAt: Date.now(),
+  };
+  souls.saveSoul(soul);
+}
+
+function greet(): void {
+  if (!soul) return;
+  renderSoulList();
+  $('transcript').replaceChildren();
+  renderSoul(true);
+  addBubble('soul', soul.greeting);
+  voice.speak(soul.greeting, soul);
+}
+
+// A lamp-coloured disc with the thing's initial, for souls woken without a photo.
+function placeholderThumbnail(label: string): string {
+  const c = document.createElement('canvas');
+  c.width = c.height = 192;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#34305c';
+  ctx.fillRect(0, 0, 192, 192);
+  ctx.fillStyle = '#f5b942';
+  ctx.font = '800 110px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText((label[0] ?? '?').toUpperCase(), 96, 104);
+  return c.toDataURL('image/png');
+}
 
 // Saved souls.
 function renderSoulList(): void {
@@ -540,6 +577,7 @@ if (crash) {
   }
 }
 $<HTMLInputElement>('phases').addEventListener('change', refreshButtons);
+$<HTMLInputElement>('text-label').addEventListener('input', refreshButtons);
 renderSoulList();
 refreshButtons();
 void showStorageUsage();
