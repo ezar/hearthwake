@@ -79,17 +79,34 @@ export function initCamera(
   });
 }
 
-export async function startCamera(): Promise<void> {
+// Requested capture sizes, as landscape width x height (phones rotate them to portrait). Lower ones test
+// whether the camera's own memory matters on the iPhone (ADR 0015).
+export const CAMERA_RESOLUTIONS = {
+  '720p': { width: 1280, height: 720 },
+  '480p': { width: 640, height: 480 },
+  '360p': { width: 640, height: 360 },
+} as const;
+export type CameraResolution = keyof typeof CAMERA_RESOLUTIONS;
+
+let listening = false;
+
+// Opens the rear camera, or reopens it at a new resolution, stopping the previous stream first.
+export async function startCamera(resolution: CameraResolution = '720p'): Promise<void> {
+  const { width, height } = CAMERA_RESOLUTIONS[resolution];
+  (video.srcObject as MediaStream | null)?.getTracks().forEach(t => t.stop());
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+    video: { facingMode: 'environment', width: { ideal: width }, height: { ideal: height } },
     audio: false,
   });
   video.srcObject = stream;
   await video.play();
   resize();
-  window.addEventListener('resize', resize);
-  new ResizeObserver(resize).observe(video);
-  log(`Camera ${video.videoWidth}x${video.videoHeight}`);
+  if (!listening) {
+    window.addEventListener('resize', resize);
+    new ResizeObserver(resize).observe(video);
+    listening = true;
+  }
+  log(`Camera ${video.videoWidth}x${video.videoHeight} (asked for ${resolution})`);
 }
 
 export const isCameraOpen = () => !!video?.videoWidth;

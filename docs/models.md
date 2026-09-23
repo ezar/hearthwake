@@ -74,6 +74,8 @@ Which combination coexists on the iPhone, and which must be swapped:
 
 - Next: waking with the camera in two steps, with a page reload between vision and the LLM (ADR 0014). Measure `wake.describe`, `wake.createSoul` and `wake.twoStepTotal` on the iPhone.
 
+- The camera can now be opened at 720p, 480p or 360p (ADR 0015), to check whether the camera's memory matters on the camera page.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.
