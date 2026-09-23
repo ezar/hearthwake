@@ -113,15 +113,15 @@ export const SOUL_SCHEMA = {
   type: 'object',
   properties: {
     name: text_(30),
-    title: text_(60),
-    archetype: text_(60),
-    traits: { type: 'array', items: text_(30), minItems: 3, maxItems: 5 },
-    style: text_(120),
-    catchphrase: text_(80),
-    secret: text_(120),
+    title: text_(40),
+    archetype: text_(40),
+    traits: { type: 'array', items: text_(20), minItems: 3, maxItems: 5 },
+    style: text_(80),
+    catchphrase: text_(60),
+    secret: text_(80),
     pitch: { type: 'number' },
     rate: { type: 'number' },
-    greeting: text_(200),
+    greeting: text_(140),
   },
   required: [
     'name',
@@ -137,18 +137,21 @@ export const SOUL_SCHEMA = {
   ],
 };
 
-// One complete soul, so small models see the shape and tone instead of guessing from field names.
+// One complete soul, so small models see the shape and tone instead of guessing from field names. It is
+// deliberately unlike household warmth or kitchens: Llama 3.2 1B copied details from a teacup example
+// ("golden handle", "Nice and toasty!") into a radiator's soul.
+const SOUL_EXAMPLE_OBJECT = 'an old blue umbrella';
 const SOUL_EXAMPLE = {
-  name: 'Lady Porcelain',
-  title: 'Queen of Breakfast',
-  archetype: 'Vain grandmother',
-  traits: ['warm', 'gossipy', 'a bit dramatic'],
-  style: 'Speaks slowly and sighs whenever her tea goes cold.',
-  catchphrase: 'Nice and toasty!',
-  secret: 'She has a tiny crack nobody has noticed.',
-  pitch: 1.3,
-  rate: 0.9,
-  greeting: 'Ooh, it is chilly! Has anyone seen my golden handle shine? Hello, sweetheart!',
+  name: 'Captain Drizzle',
+  title: 'Guardian of the Hallway',
+  archetype: 'Retired sea captain',
+  traits: ['brave', 'forgetful', 'proud'],
+  style: 'Talks like a ship captain and hates being folded.',
+  catchphrase: 'Batten down the hatches!',
+  secret: 'He is afraid of strong wind.',
+  pitch: 0.8,
+  rate: 0.95,
+  greeting: 'Ahoy! Who woke me? My blue canopy is still dry, so all is well aboard!',
 };
 
 // Returns the first balanced {...} block, ignoring braces inside strings.
@@ -193,7 +196,24 @@ export function clamp(value: unknown, min: number, max: number, fallback: number
   return typeof n === 'number' && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 }
 
-const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+const text = (v: unknown) => (typeof v === 'string' ? stripStageDirections(v) : '');
+
+// Removes stage directions like "(nods)", "*sighs*" or "[laughs]", including ones cut off at the end.
+export function stripStageDirections(value: string): string {
+  return value
+    .replace(/\([^)]*\)?|\*[^*]*\*?|\[[^\]]*\]?/g, ' ')
+    .replace(/\s+([.,!?…])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Cuts text that stopped mid-sentence back to its last complete sentence, when it has one.
+export function endAtSentence(value: string): string {
+  if (/[.!?…]["'”’]?$/.test(value)) return value;
+  const matches = [...value.matchAll(/[.!?…]["'”’]?(?=\s)/g)];
+  const last = matches.at(-1);
+  return last?.index === undefined ? value : value.slice(0, last.index + last[0].length);
+}
 
 export function normalizeSoul(raw: unknown): SoulProfile {
   if (!raw || typeof raw !== 'object') throw new Error('The generated soul is not an object');
@@ -208,7 +228,7 @@ export function normalizeSoul(raw: unknown): SoulProfile {
     secret: text(r.secret),
     pitch: clamp(r.pitch, 0.6, 1.6, 1),
     rate: clamp(r.rate, 0.8, 1.2, 1),
-    greeting: text(r.greeting),
+    greeting: endAtSentence(text(r.greeting)),
   };
   if (!soul.name || !soul.greeting) throw new Error('The generated soul has no name or greeting');
   return soul;
@@ -217,8 +237,9 @@ export function normalizeSoul(raw: unknown): SoulProfile {
 export async function createSoul(label: string, description: string): Promise<SoulProfile> {
   const reply = await requireEngine().chat.completions.create({
     temperature: 0.9,
-    // The bounded schema tops out at roughly 300 tokens; leave some room.
-    max_tokens: 450,
+    // At most about 570 characters of values; JSON in English measured about 2 characters per token on the
+    // iPhone, so 512 tokens covers the worst case.
+    max_tokens: 512,
     response_format: { type: 'json_object', schema: JSON.stringify(SOUL_SCHEMA) },
     messages: forModel([
       {
@@ -230,14 +251,15 @@ export async function createSoul(label: string, description: string): Promise<So
       {
         role: 'user',
         content:
-          'Example for a white cup with a golden handle:\n' +
+          `Example for ${SOUL_EXAMPLE_OBJECT}:\n` +
           `${JSON.stringify(SOUL_EXAMPLE)}\n\n` +
           `Now the real object. Object: ${label}. Looks: ${description}\n\n` +
-          'Create its soul in English, different from the example: an original, funny proper name; ' +
-          'a short epic title; an archetype in a few words; 3 to 5 personality traits (adjectives); ' +
-          'style says in one sentence how it talks; a short catchphrase; a harmless secret; pitch between 0.6 ' +
-          'and 1.6 and rate between 0.8 and 1.2 to suit its character; greeting is what it says on waking up, ' +
-          'a hello and not a goodbye, and mentions something concrete about how it looks.',
+          'Create its soul in English. Do not reuse any name, phrase or detail from the example. ' +
+          'An original, funny proper name; a short epic title; an archetype in a few words; 3 to 5 one-word ' +
+          'personality traits; style says in one short sentence how it talks; a short catchphrase; a harmless ' +
+          'secret; pitch between 0.6 and 1.6 and rate between 0.8 and 1.2 to suit its character. The greeting ' +
+          'is one or two short sentences it says on waking up, a hello and not a goodbye, and it must mention ' +
+          `how it looks (${description}). No stage directions, no text in brackets or asterisks.`,
       },
     ]),
   });

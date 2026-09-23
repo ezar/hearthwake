@@ -26,3 +26,18 @@ The XGrammar bundled in `@mlc-ai/web-llm` 0.2.85 was tested directly in Node, by
 - Generation always terminates within the schema, so replies no longer fail for running out of tokens.
 - Bounded strings cannot contain escapes (XGrammar excludes `"` and `\`), which is fine for these fields.
 - The example costs about 120 prompt tokens per soul.
+
+## Amendment: tighter bounds, a different example, cleanup in code
+
+The first English run on the iPhone (Llama 3.2 1B) showed four problems:
+
+- **Token budget too small.** English JSON measured about 2 characters per token (946 characters in 449 tokens), so a reply that filled every field hit the 450-token cap after 20.7 s. A shorter reply finished in 3.7 s.
+- **Copied example.** The model copied the teacup example into a radiator: "crack", "shiny handle", "Nice and toasty!".
+- **Stage directions.** It added them anyway: "(Suddenly turns off and on like a doohickey)", "(Sparky nods,".
+- **Cut-off greeting.** The greeting was cut mid-sentence and ignored the given appearance.
+
+Changes:
+
+- **Tighter bounds.** Title and archetype 40 characters, traits 20, style and secret 80, catchphrase 60, greeting 140. At most about 570 characters of values, and `max_tokens` is 512.
+- **Different example.** It is now an old blue umbrella ("Captain Drizzle"), deliberately far from warmth and kitchens. The prompt forbids reusing its names, phrases or details, asks for one-word traits and a one- or two-sentence greeting, and repeats the appearance the greeting must mention.
+- **Cleanup in code.** Every field loses text in brackets or asterisks, including cut-off ones (`stripStageDirections`), and the greeting is trimmed back to its last complete sentence (`endAtSentence`).

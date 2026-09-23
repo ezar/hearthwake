@@ -58,6 +58,13 @@ Which combination coexists on the iPhone, and which must be swapped:
 
 - Decision after these runs: keep Llama 3.2 1B in the browser and switch souls and UI to English (ADR 0012). Next run: text-only wake and a short chat in English.
 
+- 2026-09-23, iPhone, Safari, English souls (ADR 0012), Llama 3.2 1B, text-only wake, radiator "White, aluminium":
+  - LLM loaded in 3253 ms.
+  - First generation: `finish=length`, 449 tokens, 946 characters, 20.7 s.
+  - Second generation: 3.7 s. "Sparky, Radiator Reboot, frivolous innovator", 4 traits. It copied details from the example soul, added stage directions, and the greeting was cut off without mentioning the appearance.
+  - 26 English system voices, against 4 Spanish.
+  - Fixed per the ADR 0011 amendment.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.
