@@ -40,6 +40,17 @@ export const MODEL_DOWNLOAD_MB = 880;
 // iOS (ADR 0005). Sliding windows are off, since WebLLM allows one or the other.
 const CHAT_OPTIONS = { context_window_size: 2048, sliding_window_size: -1 };
 
+// Whether the model's weights are already downloaded, so a returning visitor is not surprised by a
+// download (for example after "Delete downloaded models").
+export async function isModelCached(f16: boolean): Promise<boolean> {
+  try {
+    const { hasModelInCache } = await import('@mlc-ai/web-llm');
+    return await hasModelInCache(f16 ? MODEL_F16 : MODEL_F32);
+  } catch {
+    return false;
+  }
+}
+
 export function webLlmBackend(f16: boolean): LlmBackend {
   const modelId = f16 ? MODEL_F16 : MODEL_F32;
   let engine: MLCEngine | null = null;

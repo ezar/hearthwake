@@ -720,6 +720,17 @@ h1 {
   border-radius: 20px 20px 20px 6px;
   background: var(--surface-2);
 }
+.bubble--replay {
+  border: 0;
+  text-align: left;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  cursor: pointer;
+}
+.bubble--replay:active {
+  background: var(--line);
+}
 .bubble--me {
   align-self: flex-end;
   border-radius: 20px 20px 6px 20px;

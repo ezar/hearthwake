@@ -1,6 +1,6 @@
 // Startup, the first-run gate and the screen for the current route.
 import { useEffect, useState } from 'react';
-import { ensureLlm, initEngine } from './engine/engine';
+import { ensureLlm, initEngine, llmIsCached } from './engine/engine';
 import { takeInterruptedActivities } from './engine/metrics';
 import { unlockSpeech } from './engine/voice';
 import { navigate, useRoute } from './router';
@@ -33,9 +33,12 @@ export function App() {
       const [device, settings] = await Promise.all([initEngine(), loadSettings()]);
       await importPocSouls();
       await loadSouls();
-      setBoot({ state: 'ready', supported: device.webgpu, onboarded: settings.onboarded });
+      // Onboarded means the model is on this device; if its files were deleted, the first-run screen
+      // asks before downloading them again.
+      const onboarded = settings.onboarded && device.webgpu && (await llmIsCached());
+      setBoot({ state: 'ready', supported: device.webgpu, onboarded });
       // A returning visitor's model is cached: start loading it now, before the camera, so waking is quick.
-      if (device.webgpu && settings.onboarded) ensureLlm().catch(() => undefined);
+      if (onboarded) ensureLlm().catch(() => undefined);
     })().catch((e: Error) => setBoot({ state: 'failed', message: e.message }));
   }, []);
 

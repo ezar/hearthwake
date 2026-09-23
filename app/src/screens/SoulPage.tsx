@@ -5,6 +5,7 @@ import { forgetSoul, useSouls } from '../store/souls';
 import { Back } from '../ui/icons';
 import { Link } from '../ui/Link';
 import { Portrait, tintOf } from '../ui/Portrait';
+import { useTitle } from '../ui/useTitle';
 
 // The memory summary reads best as separate facts.
 export const memoryFacts = (memory: string) =>
@@ -17,6 +18,7 @@ export function SoulPage({ id }: { id: string }) {
   const souls = useSouls();
   const soul = souls?.find(s => s.id === id) ?? null;
   const dialog = useRef<HTMLDialogElement>(null);
+  useTitle(soul ? `${soul.name}'s soul` : '');
 
   useEffect(() => {
     if (souls && !soul) navigate({ name: 'home' }, { replace: true });

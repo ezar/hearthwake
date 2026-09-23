@@ -16,6 +16,7 @@ import { setPendingWake } from '../engine/wake';
 import { goBack, navigate } from '../router';
 import { Close, Flame } from '../ui/icons';
 import { Link } from '../ui/Link';
+import { useTitle } from '../ui/useTitle';
 
 const GUESS_EVERY_MS = 900;
 const GUESS_MIN_SCORE = 0.2;
@@ -26,6 +27,7 @@ export function Wake() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guess, setGuess] = useState<string | null>(null);
+  useTitle('Wake something');
 
   useEffect(() => {
     let stream: MediaStream | null = null;

@@ -7,12 +7,14 @@ import { goBack } from '../router';
 import { loadSettings, saveSettings, type Settings as AppSettings } from '../store/settings';
 import { useSouls } from '../store/souls';
 import { Back } from '../ui/icons';
+import { useTitle } from '../ui/useTitle';
 
 export function Settings() {
   const souls = useSouls();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [usage, setUsage] = useState<number | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  useTitle('Settings');
 
   useEffect(() => {
     void loadSettings().then(setSettings);

@@ -36,6 +36,11 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+      # The app's end-to-end tests run the real UI against the mock engine (?mock).
+      - if: matrix.project == 'app'
+        run: npx playwright install --with-deps chromium
+      - if: matrix.project == 'app'
+        run: npm run e2e
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.project }}
