@@ -1,5 +1,6 @@
 // UI wiring for the Hearthwake M0 feasibility spike: busy state, button enablement and flows.
 import './styles.css';
+import { clearModelCaches, storageUsageMB } from './cache';
 import * as cam from './camera';
 import * as llm from './llm';
 import { probeDevice, type ProbeResult } from './probe';
@@ -33,6 +34,19 @@ let busy = false;
 let cameraOpen = false;
 
 initLog($('log'));
+
+// Where an error came from matters more than its message, which WebKit often makes generic.
+const describeError = (err: unknown) =>
+  err instanceof Error
+    ? `${err.name}: ${err.message}${err.stack ? `\n  ${err.stack.split('\n').slice(0, 4).join('\n  ')}` : ''}`
+    : String(err);
+
+window.addEventListener('error', e => {
+  const where = e.filename ? ` at ${e.filename}:${e.lineno}:${e.colno}` : '';
+  log(`Unhandled error${where}: ${e.error ? describeError(e.error) : e.message}`);
+});
+window.addEventListener('unhandledrejection', e => log(`Unhandled rejection: ${describeError(e.reason)}`));
+
 const crash = restoreAfterCrash();
 const crashNotice = crash
   ? `La última sesión se cerró durante «${crash.label}», seguramente por falta de memoria. Queda en el informe.`
@@ -67,6 +81,7 @@ function refreshButtons(): void {
   button('btn-send').disabled = !canTalk;
   button('btn-forget').disabled = busy || !soul;
   button('btn-report').disabled = !started;
+  button('btn-clear-cache').disabled = busy;
 }
 
 // Runs a heavy step with actions disabled. The activity label is persisted while it runs, so if iOS
@@ -167,6 +182,7 @@ for (const key of MODEL_KEYS) {
           loaded[key] = await loaders[key]();
           const seconds = ((performance.now() - start) / 1000).toFixed(1);
           setStatus(key, `${loaded[key]!.split('/').pop()} en ${runtime.device}, ${seconds} s`);
+          void showStorageUsage();
         } catch (e) {
           loaded[key] = null;
           setStatus(key, (e as Error).message, true);
@@ -187,6 +203,33 @@ for (const key of MODEL_KEYS) {
     }),
   );
 }
+
+// Downloaded models: show what the origin stores and let the tester wipe it.
+async function showStorageUsage(): Promise<void> {
+  const mb = await storageUsageMB();
+  $('st-cache').textContent = mb === null ? '' : `Ocupan unos ${mb} MB en este navegador`;
+}
+
+button('btn-clear-cache').addEventListener('click', () => {
+  const kept = MODEL_KEYS.some(k => loaded[k])
+    ? ' Los modelos cargados siguen funcionando hasta que los liberes.'
+    : '';
+  if (
+    !confirm(
+      `¿Borrar los modelos descargados? Se volverán a descargar al cargarlos. Las almas no se borran.${kept}`,
+    )
+  )
+    return;
+  void withBusy('clear model caches', async () => {
+    const before = await storageUsageMB();
+    const deleted = await clearModelCaches();
+    const after = await storageUsageMB();
+    log(
+      `Cleared ${deleted.length ? deleted.join(', ') : 'nothing'}; storage ${before ?? '?'} MB -> ${after ?? '?'} MB`,
+    );
+    $('st-cache').textContent = `Borrado. Ahora ocupan unos ${after ?? '?'} MB`;
+  });
+});
 
 // Camera and detection.
 cam.initCamera($<HTMLVideoElement>('video'), $<HTMLCanvasElement>('overlay'), sel => {
@@ -439,12 +482,6 @@ button('btn-report').addEventListener('click', async () => {
   }
 });
 
-window.addEventListener('error', e => log(`Unhandled: ${e.message}`));
-window.addEventListener('unhandledrejection', e => {
-  const reason: unknown = e.reason;
-  log(`Unhandled: ${reason instanceof Error ? reason.message : String(reason)}`);
-});
-
 if (crash) {
   $('probe-out').textContent = `${crashNotice} Pulsa Iniciar para seguir.`;
   const key = MODEL_KEYS.find(k => k === crash.model);
@@ -452,4 +489,5 @@ if (crash) {
 }
 renderSoulList();
 refreshButtons();
+void showStorageUsage();
 log('Ready. Tap Iniciar.');
