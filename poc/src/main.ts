@@ -3,7 +3,16 @@ import './styles.css';
 import * as cam from './camera';
 import * as llm from './llm';
 import { probeDevice, type ProbeResult } from './probe';
-import { buildReport, initLog, log, record, timed } from './report';
+import {
+  beginActivity,
+  buildReport,
+  endActivity,
+  initLog,
+  log,
+  record,
+  restoreAfterCrash,
+  timed,
+} from './report';
 import { runtime } from './runtime';
 import * as souls from './souls';
 import type { Soul } from './souls';
@@ -24,6 +33,10 @@ let busy = false;
 let cameraOpen = false;
 
 initLog($('log'));
+const crash = restoreAfterCrash();
+const crashNotice = crash
+  ? `La última sesión se cerró durante «${crash.label}», seguramente por falta de memoria. Queda en el informe.`
+  : '';
 
 function setStatus(key: ModelKey, text: string, isError = false): void {
   const el = $(`st-${key}`);
@@ -56,15 +69,19 @@ function refreshButtons(): void {
   button('btn-report').disabled = !started;
 }
 
-async function withBusy(fn: () => Promise<void>): Promise<void> {
+// Runs a heavy step with actions disabled. The activity label is persisted while it runs, so if iOS
+// kills the tab for lack of memory the next visit can say what was happening.
+async function withBusy(activity: string, fn: () => Promise<void>, model?: ModelKey): Promise<void> {
   busy = true;
   refreshButtons();
+  beginActivity(activity, model);
   try {
     await fn();
   } catch (e) {
     log(`Error: ${(e as Error).message}`);
     console.error(e);
   } finally {
+    endActivity();
     busy = false;
     refreshButtons();
   }
@@ -72,16 +89,16 @@ async function withBusy(fn: () => Promise<void>): Promise<void> {
 
 // Device: the Iniciar tap is also the gesture that unlocks speech on iOS.
 button('btn-start').addEventListener('click', () =>
-  withBusy(async () => {
+  withBusy('probe', async () => {
     voice.unlockSpeech();
     probe = await probeDevice();
     runtime.device = probe.webgpu ? 'webgpu' : 'wasm';
     runtime.f16 = probe.shaderF16;
-    $('probe-out').textContent = JSON.stringify(probe, null, 2);
+    $('probe-out').textContent = [crashNotice, JSON.stringify(probe, null, 2)].filter(Boolean).join('\n\n');
     log(`Runtime: ${runtime.device}${runtime.f16 ? ' + fp16' : ''}`);
     if (!probe.webgpu)
       setStatus('llm', 'Necesita WebGPU: en este navegador no se puede despertar ni hablar', true);
-    else if (!loaded.llm) setStatus('llm', 'Sin cargar');
+    else if (!loaded.llm && crash?.model !== 'llm') setStatus('llm', 'Sin cargar');
 
     const models = await llm.listModels(runtime.f16);
     const picker = $<HTMLSelectElement>('llm-model');
@@ -96,14 +113,20 @@ button('btn-start').addEventListener('click', () =>
 );
 
 // Models: one Load and one Free per model.
+function selectedModel(key: ModelKey): string {
+  if (key === 'llm') return $<HTMLSelectElement>('llm-model').value;
+  if (key === 'stt') return $<HTMLSelectElement>('stt-model').value;
+  return key === 'detector' ? 'Xenova/yolos-tiny' : 'HuggingFaceTB/SmolVLM-256M-Instruct';
+}
+
 const loaders: Record<ModelKey, () => Promise<string>> = {
   detector: async () => {
     await cam.loadDetector();
-    return 'Xenova/yolos-tiny';
+    return selectedModel('detector');
   },
   vlm: async () => {
     await vlm.loadVLM();
-    return 'HuggingFaceTB/SmolVLM-256M-Instruct';
+    return selectedModel('vlm');
   },
   llm: async () => {
     // Talking requires WebGPU; see docs/decisions/0003-llm-requires-webgpu.md.
@@ -133,25 +156,29 @@ for (const key of MODEL_KEYS) {
   free.id = `free-${key}`;
 
   load.addEventListener('click', () =>
-    withBusy(async () => {
-      setStatus(key, `Cargando en ${runtime.device}…`);
-      const start = performance.now();
-      try {
-        // Loading over a loaded model frees the old one first, so memory figures stay honest.
-        if (loaded[key] && key !== 'llm') await unloaders[key]();
-        loaded[key] = await loaders[key]();
-        const seconds = ((performance.now() - start) / 1000).toFixed(1);
-        setStatus(key, `${loaded[key]!.split('/').pop()} en ${runtime.device}, ${seconds} s`);
-      } catch (e) {
-        loaded[key] = null;
-        setStatus(key, (e as Error).message, true);
-        throw e;
-      }
-    }),
+    withBusy(
+      `load ${key} ${selectedModel(key)}`,
+      async () => {
+        setStatus(key, `Cargando en ${runtime.device}…`);
+        const start = performance.now();
+        try {
+          // Loading over a loaded model frees the old one first, so memory figures stay honest.
+          if (loaded[key] && key !== 'llm') await unloaders[key]();
+          loaded[key] = await loaders[key]();
+          const seconds = ((performance.now() - start) / 1000).toFixed(1);
+          setStatus(key, `${loaded[key]!.split('/').pop()} en ${runtime.device}, ${seconds} s`);
+        } catch (e) {
+          loaded[key] = null;
+          setStatus(key, (e as Error).message, true);
+          throw e;
+        }
+      },
+      key,
+    ),
   );
 
   free.addEventListener('click', () =>
-    withBusy(async () => {
+    withBusy(`free ${key}`, async () => {
       if (key === 'detector') stopDetectionUi();
       await unloaders[key]();
       loaded[key] = null;
@@ -172,7 +199,7 @@ cam.initCamera($<HTMLVideoElement>('video'), $<HTMLCanvasElement>('overlay'), se
 });
 
 button('btn-camera').addEventListener('click', () =>
-  withBusy(async () => {
+  withBusy('open camera', async () => {
     await cam.startCamera();
     cameraOpen = true;
     button('btn-camera').textContent = 'Cámara abierta';
@@ -209,7 +236,7 @@ button('btn-center').addEventListener('click', () => cam.selectCentre());
 
 // Waking a thing: crop, describe, create the soul, greet.
 button('btn-wake').addEventListener('click', () =>
-  withBusy(async () => {
+  withBusy('wake', async () => {
     const sel = cam.getSelected();
     const crop = cam.cropSelected();
     if (!sel || !crop) throw new Error('No hay imagen de la cámara');
@@ -377,7 +404,7 @@ async function endTalk(): Promise<void> {
   talk.textContent = 'Mantén pulsado para hablar';
   const blob = await voice.stopRecording();
   if (!blob) return;
-  await withBusy(async () => {
+  await withBusy('transcribe and reply', async () => {
     const text = await timed('stt.transcribe', () => voice.transcribe(blob));
     if (!text) {
       log('No speech detected');
@@ -397,7 +424,7 @@ $<HTMLFormElement>('text-form').addEventListener('submit', e => {
   if (!text || busy) return;
   input.value = '';
   voice.stopSpeaking();
-  void withBusy(() => reply(text, null));
+  void withBusy('reply', () => reply(text, null));
 });
 
 // Report.
@@ -418,6 +445,11 @@ window.addEventListener('unhandledrejection', e => {
   log(`Unhandled: ${reason instanceof Error ? reason.message : String(reason)}`);
 });
 
+if (crash) {
+  $('probe-out').textContent = `${crashNotice} Pulsa Iniciar para seguir.`;
+  const key = MODEL_KEYS.find(k => k === crash.model);
+  if (key) setStatus(key, 'La última vez se cerró cargando este modelo', true);
+}
 renderSoulList();
 refreshButtons();
 log('Ready. Tap Iniciar.');
