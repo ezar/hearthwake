@@ -5,6 +5,7 @@ import './styles.css';
 import { clearModelCaches, storageUsageMB } from './cache';
 import * as cam from './camera';
 import * as llm from './llm';
+import { clearPending, loadPending, pendingStep, savePending, type PendingWake } from './pending';
 import { probeDevice, type ProbeResult } from './probe';
 import {
   beginActivity,
@@ -35,6 +36,8 @@ let probe: ProbeResult | null = null;
 let soul: Soul | null = null;
 let busy = false;
 let cameraOpen = false;
+// Vision must not run in a page load where the LLM has been loaded (ADR 0014).
+let llmUsedThisPage = false;
 
 initLog($('log'));
 
@@ -84,8 +87,10 @@ function refreshButtons(): void {
   button('btn-camera').disabled = !started || busy || cameraOpen;
   button('btn-detect').disabled = !cameraOpen || !loaded.detector;
   button('btn-center').disabled = !cameraOpen;
-  // In phases mode waking loads and frees the vision model itself.
-  button('btn-wake').disabled = busy || !cam.getSelected() || !loaded.llm || (!phases() && !loaded.vlm);
+  // In two-step mode waking loads what it needs itself, across page reloads.
+  button('btn-wake').disabled = busy || !cam.getSelected() || (!twoStep() && (!loaded.llm || !loaded.vlm));
+  button('btn-pending-continue').disabled = busy || !started;
+  button('btn-pending-cancel').disabled = busy;
   button('btn-wake-text').disabled = busy || !loaded.llm || !$<HTMLInputElement>('text-label').value.trim();
   const canTalk = !busy && !!soul && !!loaded.llm;
   button('btn-talk').disabled = !canTalk || !loaded.stt;
@@ -136,7 +141,7 @@ button('btn-start').addEventListener('click', () =>
     setTimeout(() => log(`English system voices: ${voice.englishVoices().length}`), 1000);
     button('btn-start').textContent = 'Probe again';
     renderSoulList();
-  }),
+  }).then(() => continuePendingWake()),
 );
 
 // Models: one Load and one Free per model.
@@ -179,8 +184,8 @@ const detectorChoice = (): DetectorChoice => {
 const deviceFor = (key: ModelKey): string =>
   key === 'detector' ? DETECTORS[detectorChoice()].label : runtime.device;
 
-// Phases mode keeps only what the current step needs in memory (ADR 0008).
-const phases = () => $<HTMLInputElement>('phases').checked;
+// Two-step mode wakes a thing across page reloads, so vision and the LLM never share one (ADR 0014).
+const twoStep = () => $<HTMLInputElement>('two-step').checked;
 
 const unloaders: Record<ModelKey, () => Promise<void>> = {
   detector: () => cam.unloadDetector(),
@@ -202,6 +207,7 @@ for (const key of MODEL_KEYS) {
 // Loads one model, freeing its previous instance first so memory figures stay honest.
 async function loadModel(key: ModelKey): Promise<void> {
   const marker = beginActivity(`load ${key} ${selectedModel(key)}`, key);
+  if (key === 'llm') llmUsedThisPage = true;
   const device = deviceFor(key);
   setStatus(key, `Loading on ${device}…`);
   const start = performance.now();
@@ -314,36 +320,112 @@ button('btn-detect').addEventListener('click', () => {
 
 button('btn-center').addEventListener('click', () => cam.selectCentre());
 
-// Waking a thing: crop, describe, create the soul, greet. In phases mode the detector and hearing are
-// freed first, vision is loaded only for the description, and hearing comes back after the greeting.
+// Waking a thing. In two-step mode (the default) this page crops the selection, describes it with vision
+// if the LLM has not been used here, saves it as a pending wake and reloads; the fresh page finishes the
+// wake after the Start tap (continuePendingWake). Otherwise everything runs here, as the spec described.
 button('btn-wake').addEventListener('click', () =>
   withBusy('wake', async () => {
     const sel = cam.getSelected();
     const crop = cam.cropSelected();
     if (!sel || !crop) throw new Error('No camera image');
-    const staged = phases();
     // Detection is paused so the wake timings measure the models alone.
     const wasDetecting = cam.isDetecting();
     if (wasDetecting) stopDetectionUi();
-    const start = performance.now();
-    log(`Waking ${sel.label}${staged ? ' (phases)' : ''}…`);
-    try {
-      if (staged) {
+    const thumbnail = crop.toDataURL('image/jpeg', 0.8);
+    log(`Waking ${sel.label}${twoStep() ? ' (two steps)' : ''}…`);
+
+    if (twoStep()) {
+      let description: string | null = null;
+      if (!llmUsedThisPage) {
         for (const key of ['detector', 'stt'] as const) if (loaded[key]) await freeModel(key);
+        if (!loaded.vlm) await loadModel('vlm');
+        description = await timed('wake.describe', () => vlm.describe(crop));
+        log(`VLM: ${description}`);
       }
+      reloadForNextStep({
+        label: sel.label,
+        thumbnail,
+        description,
+        llm: selectedModel('llm'),
+        startedAt: Date.now(),
+      });
+      return;
+    }
+
+    const start = performance.now();
+    try {
       if (!loaded.vlm) await loadModel('vlm');
       const description = await timed('wake.describe', () => vlm.describe(crop));
       log(`VLM: ${description}`);
-      if (staged) await freeModel('vlm');
-      await createSoul(sel.label, description, crop.toDataURL('image/jpeg', 0.7));
+      await createSoul(sel.label, description, thumbnail);
       record('wake.total', performance.now() - start);
     } finally {
-      if (wasDetecting && loaded.detector && !staged) startDetectionUi();
+      if (wasDetecting && loaded.detector) startDetectionUi();
     }
     greet();
-    if (staged && !loaded.stt) await loadModel('stt');
   }),
 );
+
+function reloadForNextStep(next: PendingWake): void {
+  if (!savePending(next)) throw new Error('Could not save the wake to continue after reloading');
+  log(`Reloading to ${pendingStep(next) === 'describe' ? 'describe' : 'create the soul of'} ${next.label}`);
+  location.reload();
+}
+
+// Finishes a wake saved before a reload: describes the crop if needed (then reloads again), or creates
+// the soul. Runs after the Start tap, which iOS needs before the greeting can be spoken.
+async function continuePendingWake(): Promise<void> {
+  const pending = loadPending();
+  if (!pending) return;
+  await withBusy('wake (continued)', async () => {
+    if (pendingStep(pending) === 'describe') {
+      const canvas = await canvasFromDataUrl(pending.thumbnail);
+      if (!loaded.vlm) await loadModel('vlm');
+      const description = await timed('wake.describe', () => vlm.describe(canvas));
+      log(`VLM: ${description}`);
+      reloadForNextStep({ ...pending, description });
+      return;
+    }
+    const picker = $<HTMLSelectElement>('llm-model');
+    if ([...picker.options].some(o => o.value === pending.llm)) picker.value = pending.llm;
+    if (!loaded.llm) await loadModel('llm');
+    await createSoul(pending.label, pending.description!, pending.thumbnail);
+    // Includes the reloads and the tester's Start tap.
+    record('wake.twoStepTotal', Date.now() - pending.startedAt);
+    clearPending();
+    renderPending();
+    greet();
+  });
+}
+
+async function canvasFromDataUrl(url: string): Promise<HTMLCanvasElement> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.getContext('2d')!.drawImage(img, 0, 0);
+  return canvas;
+}
+
+function renderPending(): void {
+  const pending = loadPending();
+  $('pending-wake').hidden = !pending;
+  if (!pending) return;
+  $<HTMLImageElement>('pending-img').src = pending.thumbnail;
+  $('pending-text').textContent =
+    pendingStep(pending) === 'describe'
+      ? `Waking ${pending.label}. The page reloaded to free memory: tap Start to describe it.`
+      : `Waking ${pending.label}. The page reloaded to free memory: tap Start to create its soul.`;
+}
+
+button('btn-pending-continue').addEventListener('click', () => void continuePendingWake());
+button('btn-pending-cancel').addEventListener('click', () => {
+  clearPending();
+  renderPending();
+  log('Pending wake cancelled');
+});
 
 // Waking without the camera: the tester types what the thing is and looks like. Only the LLM runs, and
 // nothing else is loaded afterwards, so this measures LLM generation on its own (docs/models.md).
@@ -570,9 +652,10 @@ if (crash) {
       setStatus(key, 'Last time the page closed while this model was running', true);
   }
 }
-$<HTMLInputElement>('phases').addEventListener('change', refreshButtons);
+$<HTMLInputElement>('two-step').addEventListener('change', refreshButtons);
 $<HTMLInputElement>('text-label').addEventListener('input', refreshButtons);
 renderSoulList();
+renderPending();
 refreshButtons();
 void showStorageUsage();
 log('Ready. Tap Start.');

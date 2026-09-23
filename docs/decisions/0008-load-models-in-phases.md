@@ -1,6 +1,6 @@
 # 0008. Load models in phases
 
-Status: accepted, M0.
+Status: accepted, M0. Phases mode is superseded by ADR 0014 (two-step wake); the rest stands.
 
 ## Context
 
