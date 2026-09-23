@@ -19,3 +19,7 @@ The first complete camera wake on the iPhone ran in Chrome for iOS, with the cam
 - Hearing costs no memory next to the LLM.
 - It may not be local: WebKit's recognizer can send audio to Apple's servers, depending on the iOS version and settings. That departs from "every model runs locally". It is accepted for M0 so that talking can be measured at all; M1 decides whether it is acceptable.
 - The first use asks for microphone and speech recognition permission.
+
+## Amendment: talking to a saved soul after a reload
+
+iOS reloads a background tab, for example when the tester switches apps to paste the report. The soul survives the reload, because it is saved, but the LLM does not. Typing and talking were then both disabled, with no hint why. They are now enabled for any saved soul once Start is tapped on a WebGPU device, and the first message loads the LLM. Its load is timed apart (`load.llm.*`), but `talk.firstAudio*` for that first message includes it.

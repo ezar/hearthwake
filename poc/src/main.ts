@@ -94,7 +94,8 @@ function refreshButtons(): void {
   button('btn-pending-continue').disabled = busy || !started;
   button('btn-pending-cancel').disabled = busy;
   button('btn-wake-text').disabled = busy || !loaded.llm || !$<HTMLInputElement>('text-label').value.trim();
-  const canTalk = !busy && !!soul && !!loaded.llm;
+  // A saved soul survives a reload but the LLM does not; the first message loads it again.
+  const canTalk = !busy && !!soul && (!!loaded.llm || (started && !!probe?.webgpu));
   button('btn-talk').disabled = !canTalk || (!loaded.stt && !systemHearing());
   $<HTMLInputElement>('text-input').disabled = !canTalk;
   button('btn-send').disabled = !canTalk;
@@ -563,6 +564,7 @@ function addBubble(kind: 'user' | 'soul', text: string): HTMLElement {
 async function reply(text: string, releasedAt: number | null): Promise<void> {
   if (!soul) return;
   const current = soul;
+  if (!loaded.llm) await loadModel('llm');
   addBubble('user', text);
   const bubble = addBubble('soul', '');
   const splitter = voice.sentenceSplitter();
