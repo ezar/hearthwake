@@ -121,3 +121,11 @@ Which combination coexists on the iPhone, and which must be swapped: detector an
 - Are SmolVLM descriptions concrete enough for personal greetings? (paste two or three examples)
 - Spanish system voices: count per device, variety, recommendation for neural TTS in M1:
 - Memory across days: which soul, which fact, what it said:
+
+## M1 app
+
+The app (`/hearthwake/`) reports the same timings in Settings → Diagnostics → Copy. Still to measure on the iPhone, in Safari after a fresh start and in Chrome:
+
+- `wake.createSoul` and `wake.total` with the app's tighter grammar (ADR 0019). The target is under 12 s.
+- `talk.firstAudioFromRelease` (target under 4 s), `stt.transcribe`, `llm.firstToken` and `llm.fullReply`.
+- `memory.compact` after a long chat, and whether a soul recalls a fact the next day.

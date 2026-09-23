@@ -26,6 +26,11 @@ test('first run, wake by camera, talk and see the soul', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Something stirs…' })).toBeVisible();
 
   await expect(page.getByText("Hello, I'm Flibber!")).toBeVisible();
+  const sound = page.getByRole('button', { name: 'Speak replies aloud' });
+  await expect(sound).toHaveAttribute('aria-pressed', 'true');
+  await sound.click();
+  await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await sound.click();
   await page.getByRole('button', { name: 'Type instead' }).click();
   await page.getByLabel('Message to Flibber').fill('What do you do all day?');
   await page.getByRole('button', { name: 'Send' }).click();
@@ -53,8 +58,9 @@ test('wake from a description, then let it sleep', async ({ page }) => {
   await expect(page.getByRole('heading', { name: "Who's awake" })).toBeVisible();
   await expect(page.getByText('One thing in your home has something to say.')).toBeVisible();
 
-  await page.getByRole('link', { name: /Flibber/ }).click();
-  await page.getByRole('link', { name: /Flibber/ }).click();
+  await page.getByRole('link', { name: /Pip/ }).click();
+  await expect(page.getByText('Oh! Hello there. I am Pip')).toBeVisible();
+  await page.getByRole('link', { name: /Pip/ }).click();
   await page.getByRole('button', { name: 'Let it sleep for good' }).click();
   await page.getByRole('button', { name: 'Let it sleep', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'All quiet' })).toBeVisible();

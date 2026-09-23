@@ -5,23 +5,37 @@ import type { VisionBackend } from './vision';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const SOUL = {
-  name: 'Flibber',
-  title: 'The Sliding Door of Destiny',
-  archetype: 'Timekeeper',
-  traits: ['timely', 'whimsical', 'optimistic'],
-  style: 'Speaks in quick, cheerful bursts.',
-  catchphrase: 'Aha!',
-  secret: 'It squeaks on purpose when it is happy.',
-  pitch: 'high',
-  rate: 'fast',
-  greeting: "Hello, I'm Flibber! I look like a grey sliding door, but I've got so much to offer!",
+const SOULS = {
+  door: {
+    name: 'Flibber',
+    title: 'The Sliding Door of Destiny',
+    archetype: 'Timekeeper',
+    traits: ['timely', 'whimsical', 'optimistic'],
+    style: 'Speaks in quick, cheerful bursts.',
+    catchphrase: 'Aha!',
+    secret: 'It squeaks on purpose when it is happy.',
+    pitch: 'high',
+    rate: 'fast',
+    greeting: "Hello, I'm Flibber! I look like a grey sliding door, but I've got so much to offer!",
+  },
+  other: {
+    name: 'Pip',
+    title: 'Keeper of Tiny Storms',
+    archetype: 'Dreamy inventor',
+    traits: ['curious', 'gentle', 'dramatic'],
+    style: 'Whispers big ideas.',
+    catchphrase: 'Steady as a saucer!',
+    secret: 'It hums when nobody is listening.',
+    pitch: 'medium',
+    rate: 'slow',
+    greeting: 'Oh! Hello there. I am Pip, and I have been waiting ages to meet you.',
+  },
 };
 
 const REPLIES = [
   'Aha! Every time I slide open, a little adventure begins.',
   'I keep time for the hallway. Nobody gets past me without a hello!',
-  'Oh, I remember that! Doors never forget a good story.',
+  'Oh, I remember that! Things in this house never forget a good story.',
 ];
 
 export function mockLlm(): LlmBackend {
@@ -33,10 +47,13 @@ export function mockLlm(): LlmBackend {
         onProgress(i / 10, `Fetching the model ${i * 10}%`);
       }
     },
-    async complete({ grammar }) {
+    async complete({ grammar, messages }) {
       await wait(400);
-      if (grammar) return { text: JSON.stringify(SOUL), finishReason: 'stop', tokens: 120 };
-      return { text: 'The player told Flibber about their day.', finishReason: 'stop', tokens: 12 };
+      if (grammar) {
+        const soul = /door/.test(messages.at(-1)?.content ?? '') ? SOULS.door : SOULS.other;
+        return { text: JSON.stringify(soul), finishReason: 'stop', tokens: 120 };
+      }
+      return { text: 'The player talked about their day.', finishReason: 'stop', tokens: 12 };
     },
     async *stream() {
       const text = REPLIES[turn++ % REPLIES.length]!;

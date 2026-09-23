@@ -106,3 +106,9 @@ export const Warning = (p: P) => (
     <path d="M12 10v5M12 18h0" />
   </Icon>
 );
+export const Muted = (p: P) => (
+  <Icon {...p} stroke={1.8}>
+    <path d="M4 9v6h4l5 4V5L8 9z" />
+    <path d="M17 9.5l4 5M21 9.5l-4 5" />
+  </Icon>
+);
