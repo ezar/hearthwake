@@ -2,14 +2,13 @@
 
 Household objects wake up and talk, with every AI model running locally in the browser.
 
-## Current milestone: M0 feasibility spike
+## Current milestone: M1 app
 
-Build only what `docs/m0-spike.md` describes. Read it before changing anything in `poc/`.
+M0 (the feasibility spike) is closed: see `docs/decisions/0018-close-m0.md` for what it proved and the model set M1 uses.
 
-- `poc/` is the spike: Vite + TypeScript (strict), vanilla DOM. `poc/reference/` is the original plain-JS prototype, kept as a guide only; it is not built, linted or tested.
+- `poc/` is the M0 spike: Vite + TypeScript (strict), vanilla DOM, spec in `docs/m0-spike.md`. Keep it building and deployed at `/hearthwake/poc/`; change it only to keep it working. `poc/reference/` is the original plain-JS prototype, kept as a guide only; it is not built, linted or tested.
 - `docs/models.md` collects measured results per device. `docs/decisions/` holds short ADRs; record every decision there.
 - Code, comments, identifiers, commits and docs in English. UI strings and souls in English too (ADR 0012).
-- No React, PWA, IndexedDB, WebXR or game logic until M1.
 
 ## Commands (run in `poc/`)
 
