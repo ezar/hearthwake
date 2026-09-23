@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -15,128 +15,125 @@
   <body>
     <header class="top">
       <h1>Hearthwake <small>PoC M0</small></h1>
-      <button id="btn-start" class="primary">Iniciar</button>
+      <button id="btn-start" class="primary">Start</button>
     </header>
 
     <main>
       <section class="panel" aria-labelledby="h-device">
-        <h2 id="h-device">Dispositivo</h2>
-        <pre id="probe-out" class="mono">Pulsa Iniciar para analizar el dispositivo.</pre>
+        <h2 id="h-device">Device</h2>
+        <pre id="probe-out" class="mono">Tap Start to probe the device.</pre>
       </section>
 
       <section class="panel" aria-labelledby="h-models">
-        <h2 id="h-models">Modelos</h2>
+        <h2 id="h-models">Models</h2>
         <p class="hint">
-          Carga uno cada vez. Si Safari recarga la página, se ha quedado sin memoria: anótalo.
+          Load one at a time. If Safari reloads the page, it ran out of memory: note it down.
         </p>
         <label class="check">
           <input id="phases" type="checkbox" checked />
-          Cargar por fases: la visión solo mientras despierta un objeto y el oído después
+          Load in phases: vision only while waking a thing, hearing afterwards
         </label>
 
         <div class="model">
-          <div><strong>Detector</strong><span>Objetos comunes · opcional</span></div>
-          <label class="sr-only" for="detector-choice">Detector y dónde ejecutarlo</label>
+          <div><strong>Detector</strong><span>Common objects · optional</span></div>
+          <label class="sr-only" for="detector-choice">Detector and where to run it</label>
           <select id="detector-choice" disabled>
             <option value="mediapipe-gpu" selected>MediaPipe EfficientDet · GPU (WebGL)</option>
             <option value="mediapipe-cpu">MediaPipe EfficientDet · CPU</option>
             <option value="yolos-webgpu">YOLOS tiny · GPU (WebGPU)</option>
-            <option value="yolos-wasm">YOLOS tiny · CPU (WASM, lento)</option>
+            <option value="yolos-wasm">YOLOS tiny · CPU (WASM, slow)</option>
           </select>
           <div class="actions">
-            <button data-load="detector" disabled>Cargar</button>
-            <button data-free="detector" disabled>Liberar</button>
+            <button data-load="detector" disabled>Load</button>
+            <button data-free="detector" disabled>Free</button>
           </div>
-          <output id="st-detector">Sin cargar</output>
+          <output id="st-detector">Not loaded</output>
         </div>
 
         <div class="model">
-          <div><strong>Visión</strong><span>SmolVLM 256M · describe el objeto</span></div>
+          <div><strong>Vision</strong><span>SmolVLM 256M · describes the thing</span></div>
           <div class="actions">
-            <button data-load="vlm" disabled>Cargar</button>
-            <button data-free="vlm" disabled>Liberar</button>
+            <button data-load="vlm" disabled>Load</button>
+            <button data-free="vlm" disabled>Free</button>
           </div>
-          <output id="st-vlm">Sin cargar</output>
+          <output id="st-vlm">Not loaded</output>
         </div>
 
         <div class="model">
-          <div><strong>LLM</strong><span>WebLLM · da vida y voz al alma</span></div>
-          <label class="sr-only" for="llm-model">Modelo de lenguaje</label>
+          <div><strong>LLM</strong><span>WebLLM · gives the soul its life and voice</span></div>
+          <label class="sr-only" for="llm-model">Language model</label>
           <select id="llm-model" disabled></select>
           <div class="actions">
-            <button data-load="llm" disabled>Cargar</button>
-            <button data-free="llm" disabled>Liberar</button>
+            <button data-load="llm" disabled>Load</button>
+            <button data-free="llm" disabled>Free</button>
           </div>
-          <output id="st-llm">Sin cargar</output>
+          <output id="st-llm">Not loaded</output>
         </div>
 
         <div class="model">
-          <div><strong>Oído</strong><span>Whisper · transcribe lo que dices</span></div>
-          <label class="sr-only" for="stt-model">Modelo de transcripción</label>
+          <div><strong>Hearing</strong><span>Whisper · transcribes what you say</span></div>
+          <label class="sr-only" for="stt-model">Transcription model</label>
           <select id="stt-model" disabled>
             <option value="onnx-community/whisper-tiny" selected>whisper-tiny (~40 MB)</option>
             <option value="onnx-community/whisper-base">whisper-base (~80 MB)</option>
           </select>
           <div class="actions">
-            <button data-load="stt" disabled>Cargar</button>
-            <button data-free="stt" disabled>Liberar</button>
+            <button data-load="stt" disabled>Load</button>
+            <button data-free="stt" disabled>Free</button>
           </div>
-          <output id="st-stt">Sin cargar</output>
+          <output id="st-stt">Not loaded</output>
         </div>
 
         <div class="model">
-          <div>
-            <strong>Descargas</strong
-            ><span>Los modelos quedan guardados en el navegador para la próxima vez</span>
-          </div>
+          <div><strong>Downloads</strong><span>Models stay stored in the browser for next time</span></div>
           <div class="actions">
-            <button id="btn-clear-cache">Borrar modelos descargados</button>
+            <button id="btn-clear-cache">Delete downloaded models</button>
           </div>
           <output id="st-cache"></output>
         </div>
       </section>
 
       <section class="panel" aria-labelledby="h-camera">
-        <h2 id="h-camera">Cámara</h2>
+        <h2 id="h-camera">Camera</h2>
         <div class="stage">
           <video id="video" playsinline muted></video>
-          <canvas id="overlay" aria-label="Toca un objeto para elegirlo"></canvas>
+          <canvas id="overlay" aria-label="Tap an object to select it"></canvas>
         </div>
         <div class="row">
-          <button id="btn-camera" disabled>Abrir cámara</button>
-          <button id="btn-detect" disabled>Detectar</button>
-          <button id="btn-center" disabled>Usar el centro</button>
+          <button id="btn-camera" disabled>Open camera</button>
+          <button id="btn-detect" disabled>Detect</button>
+          <button id="btn-center" disabled>Use the centre</button>
         </div>
         <p class="hint">
-          <span id="det-stats">Detector parado</span>.
-          <span id="selected">Toca un objeto enmarcado, o usa el centro si no lo reconoce.</span>
+          <span id="det-stats">Detector stopped</span>.
+          <span id="selected">Tap a framed object, or use the centre if it is not recognized.</span>
         </p>
-        <button id="btn-wake" class="primary wide" disabled>Despertar objeto</button>
+        <button id="btn-wake" class="primary wide" disabled>Wake this thing</button>
         <details class="text-wake">
-          <summary>Despertar sin cámara</summary>
+          <summary>Wake without the camera</summary>
           <div class="fields">
-            <p class="hint">Solo usa el LLM: sirve para probarlo sin cargar nada más.</p>
-            <label for="text-label">Qué es</label>
-            <input id="text-label" placeholder="radiador" autocomplete="off" />
-            <label for="text-description">Cómo es (opcional)</label>
+            <p class="hint">Uses only the LLM: a way to test it without loading anything else.</p>
+            <label for="text-label">What it is</label>
+            <input id="text-label" placeholder="radiator" autocomplete="off" />
+            <label for="text-description">What it looks like (optional)</label>
             <textarea
               id="text-description"
               rows="2"
-              placeholder="Blanco, de aluminio, bajo la ventana."
+              placeholder="White, aluminium, under the window."
             ></textarea>
-            <button id="btn-wake-text" class="primary wide" disabled>Despertar sin cámara</button>
+            <button id="btn-wake-text" class="primary wide" disabled>Wake without the camera</button>
           </div>
         </details>
       </section>
 
       <section class="panel" aria-labelledby="h-soul">
-        <h2 id="h-soul">Alma</h2>
+        <h2 id="h-soul">Soul</h2>
         <div class="row">
-          <label class="sr-only" for="soul-list">Almas guardadas</label>
+          <label class="sr-only" for="soul-list">Saved souls</label>
           <select id="soul-list">
-            <option value="">Ninguna alma despierta</option>
+            <option value="">No awake souls yet</option>
           </select>
-          <button id="btn-forget" disabled>Olvidar</button>
+          <button id="btn-forget" disabled>Forget</button>
         </div>
         <div id="soul-card" class="soul-card" hidden>
           <img id="soul-img" alt="" />
@@ -145,24 +142,24 @@
             <p id="soul-title"></p>
             <p id="soul-traits" class="hint"></p>
             <details>
-              <summary>Qué recuerda</summary>
+              <summary>What it remembers</summary>
               <p id="soul-memory" class="hint"></p>
             </details>
           </div>
         </div>
         <div id="transcript" class="transcript" aria-live="polite"></div>
-        <button id="btn-talk" class="talk" disabled>Mantén pulsado para hablar</button>
+        <button id="btn-talk" class="talk" disabled>Hold to talk</button>
         <form id="text-form" class="row">
-          <label class="sr-only" for="text-input">Mensaje</label>
-          <input id="text-input" placeholder="O escribe aquí" autocomplete="off" disabled />
-          <button id="btn-send" disabled>Enviar</button>
+          <label class="sr-only" for="text-input">Message</label>
+          <input id="text-input" placeholder="Or type here" autocomplete="off" disabled />
+          <button id="btn-send" disabled>Send</button>
         </form>
       </section>
 
       <section class="panel" aria-labelledby="h-report">
-        <h2 id="h-report">Informe</h2>
+        <h2 id="h-report">Report</h2>
         <div class="row">
-          <button id="btn-report" disabled>Copiar informe</button>
+          <button id="btn-report" disabled>Copy report</button>
         </div>
         <pre id="log" class="mono log"></pre>
       </section>

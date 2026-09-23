@@ -67,7 +67,7 @@ async function fetchCached(url: string): Promise<Uint8Array> {
   let response = await cache.match(url);
   if (!response) {
     const fresh = await fetch(url);
-    if (!fresh.ok) throw new Error(`No se pudo descargar el detector (${fresh.status})`);
+    if (!fresh.ok) throw new Error(`Could not download the detector (${fresh.status})`);
     await cache.put(url, fresh.clone());
     response = fresh;
   }

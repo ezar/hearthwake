@@ -52,8 +52,8 @@ window.addEventListener('unhandledrejection', e => log(`Unhandled rejection: ${d
 
 const crash = restoreAfterCrash();
 const crashNotice = crash
-  ? `La última sesión se cerró durante «${crash.map(a => a.label).join(' + ')}», seguramente por falta de memoria. ` +
-    'Queda en el informe.'
+  ? `The last session closed during "${crash.map(a => a.label).join(' + ')}", probably out of memory. ` +
+    'It is in the report.'
   : '';
 const crashedModels = new Set(crash?.map(a => a.model));
 
@@ -115,7 +115,7 @@ async function withBusy(activity: string | null, fn: () => Promise<void>): Promi
   }
 }
 
-// Device: the Iniciar tap is also the gesture that unlocks speech on iOS.
+// Device: the Start tap is also the gesture that unlocks speech on iOS.
 button('btn-start').addEventListener('click', () =>
   withBusy('probe', async () => {
     voice.unlockSpeech();
@@ -124,9 +124,8 @@ button('btn-start').addEventListener('click', () =>
     runtime.f16 = probe.shaderF16;
     $('probe-out').textContent = [crashNotice, JSON.stringify(probe, null, 2)].filter(Boolean).join('\n\n');
     log(`Runtime: ${runtime.device}${runtime.f16 ? ' + fp16' : ''}`);
-    if (!probe.webgpu)
-      setStatus('llm', 'Necesita WebGPU: en este navegador no se puede despertar ni hablar', true);
-    else if (!loaded.llm && !crashedModels.has('llm')) setStatus('llm', 'Sin cargar');
+    if (!probe.webgpu) setStatus('llm', 'Needs WebGPU: this browser cannot wake things or talk', true);
+    else if (!loaded.llm && !crashedModels.has('llm')) setStatus('llm', 'Not loaded');
 
     const models = await llm.listModels(runtime.f16);
     const picker = $<HTMLSelectElement>('llm-model');
@@ -134,8 +133,8 @@ button('btn-start').addEventListener('click', () =>
     const preferred = models.find(m => llm.DEFAULT_MODEL.test(m.id)) ?? models[0];
     if (preferred) picker.value = preferred.id;
 
-    setTimeout(() => log(`Spanish system voices: ${voice.spanishVoices().length}`), 1000);
-    button('btn-start').textContent = 'Reanalizar';
+    setTimeout(() => log(`English system voices: ${voice.englishVoices().length}`), 1000);
+    button('btn-start').textContent = 'Probe again';
     renderSoulList();
   }),
 );
@@ -160,7 +159,7 @@ const loaders: Record<ModelKey, () => Promise<string>> = {
   },
   llm: async () => {
     // Talking requires WebGPU; see docs/decisions/0003-llm-requires-webgpu.md.
-    if (runtime.device !== 'webgpu') throw new Error('Necesita WebGPU');
+    if (runtime.device !== 'webgpu') throw new Error('Needs WebGPU');
     const id = $<HTMLSelectElement>('llm-model').value;
     await llm.loadLLM(id, text => setStatus('llm', text));
     return id;
@@ -204,13 +203,13 @@ for (const key of MODEL_KEYS) {
 async function loadModel(key: ModelKey): Promise<void> {
   const marker = beginActivity(`load ${key} ${selectedModel(key)}`, key);
   const device = deviceFor(key);
-  setStatus(key, `Cargando en ${device}…`);
+  setStatus(key, `Loading on ${device}…`);
   const start = performance.now();
   try {
     if (loaded[key] && key !== 'llm') await unloaders[key]();
     loaded[key] = await loaders[key]();
     const seconds = ((performance.now() - start) / 1000).toFixed(1);
-    setStatus(key, `${loaded[key]!.split('/').pop()} en ${device}, ${seconds} s`);
+    setStatus(key, `${loaded[key]!.split('/').pop()} on ${device}, ${seconds} s`);
     void showStorageUsage();
   } catch (e) {
     loaded[key] = null;
@@ -226,7 +225,7 @@ async function freeModel(key: ModelKey): Promise<void> {
   if (key === 'detector') stopDetectionUi();
   await unloaders[key]();
   loaded[key] = null;
-  setStatus(key, 'Liberado');
+  setStatus(key, 'Freed');
   log(`Unloaded ${key}`);
   refreshButtons();
 }
@@ -234,18 +233,12 @@ async function freeModel(key: ModelKey): Promise<void> {
 // Downloaded models: show what the origin stores and let the tester wipe it.
 async function showStorageUsage(): Promise<void> {
   const mb = await storageUsageMB();
-  $('st-cache').textContent = mb === null ? '' : `Ocupan unos ${mb} MB en este navegador`;
+  $('st-cache').textContent = mb === null ? '' : `About ${mb} MB stored in this browser`;
 }
 
 button('btn-clear-cache').addEventListener('click', () => {
-  const kept = MODEL_KEYS.some(k => loaded[k])
-    ? ' Los modelos cargados siguen funcionando hasta que los liberes.'
-    : '';
-  if (
-    !confirm(
-      `¿Borrar los modelos descargados? Se volverán a descargar al cargarlos. Las almas no se borran.${kept}`,
-    )
-  )
+  const kept = MODEL_KEYS.some(k => loaded[k]) ? ' Loaded models keep working until you free them.' : '';
+  if (!confirm(`Delete downloaded models? They will download again when loaded. Souls are kept.${kept}`))
     return;
   void withBusy('clear model caches', async () => {
     const before = await storageUsageMB();
@@ -254,17 +247,17 @@ button('btn-clear-cache').addEventListener('click', () => {
     log(
       `Cleared ${deleted.length ? deleted.join(', ') : 'nothing'}; storage ${before ?? '?'} MB -> ${after ?? '?'} MB`,
     );
-    $('st-cache').textContent = `Borrado. Ahora ocupan unos ${after ?? '?'} MB`;
+    $('st-cache').textContent = `Deleted. Now about ${after ?? '?'} MB`;
   });
 });
 
 // Camera and detection.
 cam.initCamera($<HTMLVideoElement>('video'), $<HTMLCanvasElement>('overlay'), sel => {
   $('selected').textContent = sel
-    ? `Seleccionado: ${sel.label}${
-        sel.label === cam.CENTRE_LABEL ? ' (centro de la imagen)' : ` (${Math.round(sel.score * 100)}%)`
+    ? `Selected: ${sel.label}${
+        sel.label === cam.CENTRE_LABEL ? ' (centre of the image)' : ` (${Math.round(sel.score * 100)}%)`
       }.`
-    : 'Toca un objeto enmarcado, o usa el centro si no lo reconoce.';
+    : 'Tap a framed object, or use the centre if it is not recognized.';
   refreshButtons();
 });
 
@@ -272,7 +265,7 @@ button('btn-camera').addEventListener('click', () =>
   withBusy('open camera', async () => {
     await cam.startCamera();
     cameraOpen = true;
-    button('btn-camera').textContent = 'Cámara abierta';
+    button('btn-camera').textContent = 'Camera open';
   }),
 );
 
@@ -286,10 +279,10 @@ function endDetectMarker(): void {
 
 function onDetectionStats(s: cam.DetectionStats | null): void {
   $('det-stats').textContent = s
-    ? `${s.fps} fps, ${s.ms} ms por fotograma, ${s.count} objetos`
-    : 'Detector parado';
+    ? `${s.fps} fps, ${s.ms} ms per frame, ${s.count} objects`
+    : 'Detector stopped';
   if (!s) {
-    button('btn-detect').textContent = 'Detectar';
+    button('btn-detect').textContent = 'Detect';
     endDetectMarker();
   }
 }
@@ -302,12 +295,12 @@ function startDetectionUi(): void {
     endDetectMarker();
     throw e;
   }
-  button('btn-detect').textContent = 'Parar';
+  button('btn-detect').textContent = 'Stop';
 }
 
 function stopDetectionUi(): void {
   cam.stopDetection();
-  button('btn-detect').textContent = 'Detectar';
+  button('btn-detect').textContent = 'Detect';
 }
 
 button('btn-detect').addEventListener('click', () => {
@@ -327,7 +320,7 @@ button('btn-wake').addEventListener('click', () =>
   withBusy('wake', async () => {
     const sel = cam.getSelected();
     const crop = cam.cropSelected();
-    if (!sel || !crop) throw new Error('No hay imagen de la cámara');
+    if (!sel || !crop) throw new Error('No camera image');
     const staged = phases();
     // Detection is paused so the wake timings measure the models alone.
     const wasDetecting = cam.isDetecting();
@@ -408,7 +401,7 @@ function renderSoulList(): void {
   const list = souls.listSouls();
   const picker = $<HTMLSelectElement>('soul-list');
   picker.replaceChildren(
-    new Option(list.length ? 'Elige un alma despierta' : 'Ninguna alma despierta', ''),
+    new Option(list.length ? 'Choose an awake soul' : 'No awake souls yet', ''),
     ...list.map(s => new Option(`${s.name}, ${s.label}`, s.id)),
   );
   picker.value = soul?.id ?? '';
@@ -425,7 +418,7 @@ $<HTMLSelectElement>('soul-list').addEventListener('change', e => {
 });
 
 button('btn-forget').addEventListener('click', () => {
-  if (!soul || !confirm(`¿Olvidar a ${soul.name}? No se puede deshacer.`)) return;
+  if (!soul || !confirm(`Forget ${soul.name}? This cannot be undone.`)) return;
   voice.stopSpeaking();
   souls.forgetSoul(soul.id);
   log(`Forgot ${soul.name}`);
@@ -444,8 +437,8 @@ function renderSoul(waking: boolean): void {
   $<HTMLImageElement>('soul-img').alt = soul.label;
   $('soul-name').textContent = soul.name;
   $('soul-title').textContent = `${soul.title}. ${soul.archetype}.`;
-  $('soul-traits').textContent = `${soul.traits.join(', ')}. «${soul.catchphrase}»`;
-  $('soul-memory').textContent = soul.memory || 'Todavía nada.';
+  $('soul-traits').textContent = `${soul.traits.join(', ')}. "${soul.catchphrase}"`;
+  $('soul-memory').textContent = soul.memory || 'Nothing yet.';
   card.classList.remove('waking');
   if (waking) {
     void card.offsetWidth; // Restart the animation.
@@ -522,7 +515,7 @@ talk.addEventListener('pointerdown', async e => {
   }
   recording = true;
   talk.classList.add('recording');
-  talk.textContent = 'Escuchando… suelta para enviar';
+  talk.textContent = 'Listening… release to send';
   if (!pressed) void endTalk();
 });
 
@@ -532,7 +525,7 @@ async function endTalk(): Promise<void> {
   recording = false;
   const releasedAt = performance.now();
   talk.classList.remove('recording');
-  talk.textContent = 'Mantén pulsado para hablar';
+  talk.textContent = 'Hold to talk';
   const blob = await voice.stopRecording();
   if (!blob) return;
   await withBusy('transcribe and reply', async () => {
@@ -571,9 +564,10 @@ button('btn-report').addEventListener('click', async () => {
 });
 
 if (crash) {
-  $('probe-out').textContent = `${crashNotice} Pulsa Iniciar para seguir.`;
+  $('probe-out').textContent = `${crashNotice} Tap Start to continue.`;
   for (const key of MODEL_KEYS) {
-    if (crashedModels.has(key)) setStatus(key, 'La última vez se cerró con este modelo en marcha', true);
+    if (crashedModels.has(key))
+      setStatus(key, 'Last time the page closed while this model was running', true);
   }
 }
 $<HTMLInputElement>('phases').addEventListener('change', refreshButtons);
@@ -581,4 +575,4 @@ $<HTMLInputElement>('text-label').addEventListener('input', refreshButtons);
 renderSoulList();
 refreshButtons();
 void showStorageUsage();
-log('Ready. Tap Iniciar.');
+log('Ready. Tap Start.');

@@ -85,16 +85,16 @@ async function toMono16k(blob: Blob): Promise<Float32Array> {
 }
 
 export async function transcribe(blob: Blob): Promise<string> {
-  if (!asr) throw new Error('Carga el oído primero');
+  if (!asr) throw new Error('Load hearing first');
   const audio = await toMono16k(blob);
   if (audio.length < SAMPLE_RATE * MIN_SECONDS) return '';
-  const out = await asr(audio, { language: 'spanish', task: 'transcribe' });
+  const out = await asr(audio, { language: 'english', task: 'transcribe' });
   return (Array.isArray(out) ? out.map(o => o.text).join(' ') : out.text).trim();
 }
 
 // Speech.
 
-// iOS only allows speech after a user gesture; call this from the Iniciar tap.
+// iOS only allows speech after a user gesture; call this from the Start tap.
 export function unlockSpeech(): void {
   const loadVoices = () => {
     voices = speechSynthesis.getVoices();
@@ -106,7 +106,7 @@ export function unlockSpeech(): void {
   speechSynthesis.speak(u);
 }
 
-export const spanishVoices = () => voices.filter(v => v.lang.toLowerCase().startsWith('es'));
+export const englishVoices = () => voices.filter(v => v.lang.toLowerCase().startsWith('en'));
 
 export function hashName(name: string): number {
   let h = 0;
@@ -116,7 +116,7 @@ export function hashName(name: string): number {
 
 // Deterministic per soul, so the same thing always sounds the same on a device.
 function voiceFor(speaker: Speaker): SpeechSynthesisVoice | null {
-  const pool = spanishVoices();
+  const pool = englishVoices();
   return pool.length ? pool[hashName(speaker.name) % pool.length]! : null;
 }
 
@@ -128,7 +128,7 @@ export function speak(text: string, speaker: Speaker, onStart?: () => void): voi
     u.voice = v;
     u.lang = v.lang;
   } else {
-    u.lang = 'es-ES';
+    u.lang = 'en-US';
   }
   u.pitch = speaker.pitch;
   u.rate = speaker.rate;

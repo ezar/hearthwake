@@ -1,5 +1,7 @@
 # Hearthwake M0: feasibility spike
 
+> Amended during M0 by the ADRs in `docs/decisions/`. Notably, ADR 0012 switches souls and UI to English: where this spec says Spanish, read English.
+
 This document tells Claude Code how to build milestone M0 of Hearthwake. The full product spec lives in `docs/spec.md`; read it first for context, but build only what is described here.
 
 M0 answers one question: can an iPhone, inside Safari, wake up a household object and hold a spoken conversation with it, with every AI model running locally in the browser?

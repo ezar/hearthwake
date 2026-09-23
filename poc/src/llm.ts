@@ -100,7 +100,7 @@ const forModel = (messages: Message[]) =>
   adaptMessages(loadedId ?? '', messages) as ChatCompletionRequestNonStreaming['messages'];
 
 function requireEngine(): MLCEngine {
-  if (!engine || !loadedId) throw new Error('Carga el LLM primero');
+  if (!engine || !loadedId) throw new Error('Load the LLM first');
   return engine;
 }
 
@@ -139,16 +139,16 @@ export const SOUL_SCHEMA = {
 
 // One complete soul, so small models see the shape and tone instead of guessing from field names.
 const SOUL_EXAMPLE = {
-  name: 'Doña Porcelana',
-  title: 'Reina del desayuno',
-  archetype: 'Abuela presumida',
-  traits: ['cariñosa', 'cotilla', 'algo dramática'],
-  style: 'Habla despacio y suspira cuando se le enfría el café.',
-  catchphrase: '¡Qué calentito!',
-  secret: 'Tiene una grieta pequeñita que nadie ha visto.',
+  name: 'Lady Porcelain',
+  title: 'Queen of Breakfast',
+  archetype: 'Vain grandmother',
+  traits: ['warm', 'gossipy', 'a bit dramatic'],
+  style: 'Speaks slowly and sighs whenever her tea goes cold.',
+  catchphrase: 'Nice and toasty!',
+  secret: 'She has a tiny crack nobody has noticed.',
   pitch: 1.3,
   rate: 0.9,
-  greeting: '¡Uy, qué frío! ¿Alguien ha visto brillar mi asa dorada? ¡Hola, tesoro!',
+  greeting: 'Ooh, it is chilly! Has anyone seen my golden handle shine? Hello, sweetheart!',
 };
 
 // Returns the first balanced {...} block, ignoring braces inside strings.
@@ -185,7 +185,7 @@ export function parseJson(text: string): unknown {
       // Reported below.
     }
   }
-  throw new Error('El modelo no devolvió JSON válido');
+  throw new Error('The model did not return valid JSON');
 }
 
 export function clamp(value: unknown, min: number, max: number, fallback: number): number {
@@ -196,7 +196,7 @@ export function clamp(value: unknown, min: number, max: number, fallback: number
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 export function normalizeSoul(raw: unknown): SoulProfile {
-  if (!raw || typeof raw !== 'object') throw new Error('El alma generada no es un objeto');
+  if (!raw || typeof raw !== 'object') throw new Error('The generated soul is not an object');
   const r = raw as Record<string, unknown>;
   const soul: SoulProfile = {
     name: text(r.name),
@@ -210,7 +210,7 @@ export function normalizeSoul(raw: unknown): SoulProfile {
     rate: clamp(r.rate, 0.8, 1.2, 1),
     greeting: text(r.greeting),
   };
-  if (!soul.name || !soul.greeting) throw new Error('El alma generada no tiene nombre o saludo');
+  if (!soul.name || !soul.greeting) throw new Error('The generated soul has no name or greeting');
   return soul;
 }
 
@@ -224,20 +224,20 @@ export async function createSoul(label: string, description: string): Promise<So
       {
         role: 'system',
         content:
-          'Eres el director de un juego familiar en el que los objetos de una casa real cobran vida. ' +
-          'Creas personajes memorables, variados y aptos para niños. Respondes solo con JSON.',
+          'You direct a family game in which the objects of a real home come to life. ' +
+          'You create memorable, varied, child-friendly characters. You answer only with JSON.',
       },
       {
         role: 'user',
         content:
-          'Ejemplo para una taza blanca con el asa dorada:\n' +
+          'Example for a white cup with a golden handle:\n' +
           `${JSON.stringify(SOUL_EXAMPLE)}\n\n` +
-          `Ahora el objeto real. Objeto: ${label}. Cómo es: ${description}\n\n` +
-          'Crea su alma, todo en español y distinta del ejemplo: un nombre propio original y divertido; ' +
-          'un título épico corto; un arquetipo en pocas palabras; de 3 a 5 rasgos de personalidad (adjetivos); ' +
-          'style describe en una frase cómo habla; una muletilla corta; un secreto inofensivo; pitch entre 0.6 y ' +
-          '1.6 y rate entre 0.8 y 1.2 según su carácter; greeting es un saludo al despertar, no una despedida, ' +
-          'y menciona algo concreto de su aspecto.',
+          `Now the real object. Object: ${label}. Looks: ${description}\n\n` +
+          'Create its soul in English, different from the example: an original, funny proper name; ' +
+          'a short epic title; an archetype in a few words; 3 to 5 personality traits (adjectives); ' +
+          'style says in one sentence how it talks; a short catchphrase; a harmless secret; pitch between 0.6 ' +
+          'and 1.6 and rate between 0.8 and 1.2 to suit its character; greeting is what it says on waking up, ' +
+          'a hello and not a goodbye, and mentions something concrete about how it looks.',
       },
     ]),
   });
@@ -249,7 +249,7 @@ export async function createSoul(label: string, description: string): Promise<So
     // Small models can run out of tokens mid-JSON; log what came back so the cause is visible.
     log(describeFailedOutput(text, choice?.finish_reason ?? null, reply.usage?.completion_tokens ?? null));
     if (choice?.finish_reason === 'length')
-      throw new Error('El modelo se quedó sin espacio antes de terminar el alma', { cause: e });
+      throw new Error('The model ran out of tokens before finishing the soul', { cause: e });
     throw e;
   }
 }
@@ -272,16 +272,16 @@ export function describeFailedOutput(
 
 export function systemPrompt(soul: Soul): string {
   return [
-    `Eres ${soul.name}, ${soul.title}. Eres un objeto de una casa real que ha cobrado vida (${soul.label}).`,
-    `Tu aspecto: ${soul.description}`,
-    `Arquetipo: ${soul.archetype}. Rasgos: ${soul.traits.join(', ')}. Forma de hablar: ${soul.style}. ` +
-      `Muletilla: "${soul.catchphrase}".`,
-    `Tu secreto, que no cuentas fácilmente: ${soul.secret}.`,
-    `Lo que recuerdas de conversaciones anteriores: ${soul.memory || 'nada todavía, acabas de despertar'}.`,
-    'Reglas: responde en el idioma del jugador, en 1 a 3 frases cortas, sin emojis ni acotaciones.',
-    'Hablas con niños: sé divertido; puedes ser gruñón o dramático, pero nunca cruel ni aterrador.',
-    'Nunca pidas datos personales ni propongas secretos que haya que ocultar a los padres.',
-    'Nunca sugieras tocar enchufes, fuego o cosas calientes, ni subirse a sitios.',
+    `You are ${soul.name}, ${soul.title}. You are an object in a real home that has come to life (${soul.label}).`,
+    `How you look: ${soul.description}`,
+    `Archetype: ${soul.archetype}. Traits: ${soul.traits.join(', ')}. How you talk: ${soul.style}. ` +
+      `Catchphrase: "${soul.catchphrase}".`,
+    `Your secret, which you do not share easily: ${soul.secret}.`,
+    `What you remember from earlier conversations: ${soul.memory || 'nothing yet, you have just woken up'}.`,
+    'Rules: answer in English, in 1 to 3 short sentences, with no emojis or stage directions.',
+    'You are talking with children: be fun; you may be grumpy or dramatic, but never cruel or frightening.',
+    'Never ask for personal details and never suggest keeping secrets from parents.',
+    'Never suggest touching sockets, fire or hot things, or climbing on anything.',
   ].join('\n');
 }
 
@@ -328,7 +328,7 @@ export const needsCompaction = (history: readonly ChatMessage[]) => history.leng
 // Folds everything but the last six messages into the memory summary.
 export async function compactMemory(soul: Soul, llm: CompletionEngine = requireEngine()): Promise<Soul> {
   const older = soul.history.slice(0, -KEEP_AFTER_COMPACT);
-  const transcript = older.map(m => `${m.role === 'user' ? 'Jugador' : soul.name}: ${m.content}`).join('\n');
+  const transcript = older.map(m => `${m.role === 'user' ? 'Player' : soul.name}: ${m.content}`).join('\n');
   const reply = await llm.chat.completions.create({
     temperature: 0.3,
     max_tokens: 220,
@@ -336,14 +336,14 @@ export async function compactMemory(soul: Soul, llm: CompletionEngine = requireE
       {
         role: 'system',
         content:
-          'Resumes los recuerdos de un personaje. Escribes en español, en tercera persona, ' +
-          'de 3 a 5 frases, solo hechos concretos.',
+          'You summarize the memories of a character. You write in English, in the third person, ' +
+          '3 to 5 sentences, concrete facts only.',
       },
       {
         role: 'user',
         content:
-          `Recuerdos previos de ${soul.name}: ${soul.memory || 'ninguno'}\n\nConversación nueva:\n${transcript}\n\n` +
-          `Escribe el resumen actualizado de lo que ${soul.name} debe recordar, uniendo los recuerdos previos y los nuevos.`,
+          `Earlier memories of ${soul.name}: ${soul.memory || 'none'}\n\nNew conversation:\n${transcript}\n\n` +
+          `Write the updated summary of what ${soul.name} should remember, merging the earlier and new memories.`,
       },
     ]),
   });
