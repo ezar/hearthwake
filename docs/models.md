@@ -95,6 +95,7 @@ Which combination coexists on the iPhone, and which must be swapped: detector an
   - `wake.createSoul` took 17912 ms and **`wake.total` 20186 ms**, against a 12 s target. Soul generation takes almost all of it: 18 s here, against 4 to 14 s for text-only wakes in Safari.
   - Next: talk to the soul (text, then `SpeechRecognition`), and repeat the wake in Safari after force-quitting it, to tell a Safari limit from a worn-out process.
 - 2026-09-24, iPhone, Chrome for iOS: "Flibber, the Sliding Door of Destiny" greeted with "Hello, I'm Flibber! I look like a grey sliding door, but I've got so much to offer!", which mentions its appearance. "Hold to talk" stayed disabled with no Whisper model loaded. System speech recognition is now the default for hearing (ADR 0017).
+- 2026-09-24, iPhone, Chrome for iOS, after the fixes in ADR 0017: typing and push-to-talk with system speech recognition both worked, and the soul replied aloud. **The full M0 loop ran on the iPhone.** Talk timings were not copied. M0 closes here (ADR 0018).
 
 ## Built-in AI on iOS
 
