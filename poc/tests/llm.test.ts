@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CHAT_OPTIONS,
   adaptMessages,
   clamp,
   compactMemory,
@@ -194,5 +195,12 @@ describe('adaptMessages', () => {
     expect(adaptMessages('gemma3-1b-it-q4f16_1-MLC', [system])).toEqual([
       { role: 'user', content: 'Eres Lola.' },
     ]);
+  });
+});
+
+describe('CHAT_OPTIONS', () => {
+  it('never sets both a context window and a sliding window (WebLLM rejects that for Gemma 3)', () => {
+    expect(CHAT_OPTIONS.context_window_size).toBe(2048);
+    expect(CHAT_OPTIONS.sliding_window_size).toBe(-1);
   });
 });

@@ -34,7 +34,10 @@ export const DEFAULT_MODEL = /^Llama-3\.2-1B-Instruct-/;
 // messages, a 160-token reply) fit well inside 2048, and halving WebLLM's usual 4096 saves memory on iOS.
 // See docs/decisions/0005-llm-context-window.md.
 export const CONTEXT_WINDOW = 2048;
-const CHAT_OPTIONS = { context_window_size: CONTEXT_WINDOW };
+// WebLLM allows a full context window or a sliding one, not both. Gemma 3's config brings a 512-token
+// sliding window, and WebLLM's own record for it already asks for a full window, so turn sliding off.
+// Models without a sliding window already have it at -1, so this changes nothing for them.
+export const CHAT_OPTIONS = { context_window_size: CONTEXT_WINDOW, sliding_window_size: -1 };
 
 let engine: MLCEngine | null = null;
 let loadedId: string | null = null;
