@@ -1,6 +1,6 @@
-// Downloaded model weights live in Cache Storage (transformers.js: `transformers-cache`, WebLLM:
-// `webllm/model`, `webllm/config`, `webllm/wasm`). The harness keeps nothing else there: souls and the
-// log are in localStorage, so clearing every cache of the origin frees models only.
+// Downloaded model weights live in Cache Storage (transformers.js: `transformers-cache`, MediaPipe:
+// `mediapipe-models`, WebLLM: `webllm/model`, `webllm/config`, `webllm/wasm`). The harness keeps nothing
+// else there: souls and the log are in localStorage, so clearing every cache of the origin frees models only.
 
 export async function storageUsageMB(): Promise<number | null> {
   try {

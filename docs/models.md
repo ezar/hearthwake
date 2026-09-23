@@ -29,6 +29,8 @@ Which combination coexists on the iPhone, and which must be swapped:
 - 2026-09-23, iPhone, Safari, context window 2048, fresh page: Llama-3.2-1B-Instruct-q4f16_1-MLC loaded alone in 2440 ms (weights cached). Loading whisper-base on top killed the tab. **LLM (1B) and whisper-base do not coexist.** Next: Llama-3.2-1B with whisper-tiny, then Qwen2.5-0.5B with whisper-tiny.
 - The startup `SyntaxError` is an unhandled promise rejection with no stack. It also appeared once with no user action. That message is what Safari's `Response.json()` throws on a non-JSON body, so `Response.json()` is now instrumented to log the URL, status, body start and caller (`poc/src/diagnostics.ts`).
 - 2026-09-23, iPhone, Safari: the tab was killed as soon as detection started (models loaded at the time not recorded, because detection had no crash marker yet). Since ADR 0008 detection is marked, and the detector can run on the CPU to tell WebGPU from memory.
+- 2026-09-23, iPhone, Safari: with the detector (YOLOS, WebGPU, 361 ms load from cache) and vision loaded, and no LLM, the tab was killed as detection started, so this is not a memory problem. YOLOS on WASM ran without crashing at **0.2 fps** (5092 ms per frame). The detector is now selectable, with MediaPipe EfficientDet-Lite0 on WebGL as the default (ADR 0010).
+- Probe on the iPhone: `builtIn.languageModel` false, `builtIn.speechRecognition` true. Safari exposes no on-device LLM to pages.
 - Since ADR 0008/0009 the defaults are phases on, Llama-3.2-1B and whisper-tiny. Next run: wake an object with "Usar el centro" (no detector) and talk to it.
 
 ## Built-in AI on iOS

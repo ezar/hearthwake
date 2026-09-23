@@ -16,7 +16,8 @@ import {
   restoreAfterCrash,
   timed,
 } from './report';
-import { runtime, type Device } from './runtime';
+import { DETECTORS, type DetectorChoice } from './detectors';
+import { runtime } from './runtime';
 import * as souls from './souls';
 import type { Soul } from './souls';
 import * as vlm from './vlm';
@@ -74,7 +75,11 @@ function refreshButtons(): void {
   button('load-llm').disabled ||= !hasWebGpu;
   $<HTMLSelectElement>('llm-model').disabled = !started || busy || !hasWebGpu;
   $<HTMLSelectElement>('stt-model').disabled = !started || busy;
-  $<HTMLSelectElement>('detector-device').disabled = !started || busy || runtime.device !== 'webgpu';
+  const detectorPicker = $<HTMLSelectElement>('detector-choice');
+  detectorPicker.disabled = !started || busy;
+  for (const option of detectorPicker.options) {
+    option.disabled = DETECTORS[option.value as DetectorChoice].needsWebGpu && runtime.device !== 'webgpu';
+  }
   button('btn-start').disabled = busy;
   button('btn-camera').disabled = !started || busy || cameraOpen;
   button('btn-detect').disabled = !cameraOpen || !loaded.detector;
@@ -138,12 +143,14 @@ button('btn-start').addEventListener('click', () =>
 function selectedModel(key: ModelKey): string {
   if (key === 'llm') return $<HTMLSelectElement>('llm-model').value;
   if (key === 'stt') return $<HTMLSelectElement>('stt-model').value;
-  return key === 'detector' ? 'Xenova/yolos-tiny' : 'HuggingFaceTB/SmolVLM-256M-Instruct';
+  return key === 'detector'
+    ? `${DETECTORS[detectorChoice()].model} (${detectorChoice()})`
+    : 'HuggingFaceTB/SmolVLM-256M-Instruct';
 }
 
 const loaders: Record<ModelKey, () => Promise<string>> = {
   detector: async () => {
-    await cam.loadDetector(detectorDevice());
+    await cam.loadDetector(detectorChoice());
     return selectedModel('detector');
   },
   vlm: async () => {
@@ -164,12 +171,13 @@ const loaders: Record<ModelKey, () => Promise<string>> = {
   },
 };
 
-// The detector can be forced onto the CPU to tell a WebGPU problem from a memory one.
-const detectorDevice = (): Device =>
-  runtime.device === 'webgpu' && $<HTMLSelectElement>('detector-device').value === 'webgpu'
-    ? 'webgpu'
-    : 'wasm';
-const deviceFor = (key: ModelKey): Device => (key === 'detector' ? detectorDevice() : runtime.device);
+// The tester picks the detector engine and where it runs (ADR 0010).
+const detectorChoice = (): DetectorChoice => {
+  const choice = $<HTMLSelectElement>('detector-choice').value as DetectorChoice;
+  return DETECTORS[choice].needsWebGpu && runtime.device !== 'webgpu' ? 'mediapipe-cpu' : choice;
+};
+const deviceFor = (key: ModelKey): string =>
+  key === 'detector' ? DETECTORS[detectorChoice()].label : runtime.device;
 
 // Phases mode keeps only what the current step needs in memory (ADR 0008).
 const phases = () => $<HTMLInputElement>('phases').checked;
@@ -286,7 +294,7 @@ function onDetectionStats(s: cam.DetectionStats | null): void {
 }
 
 function startDetectionUi(): void {
-  detectMarker ??= beginActivity(`detect on ${detectorDevice()}`, 'detector');
+  detectMarker ??= beginActivity(`detect with ${detectorChoice()}`, 'detector');
   try {
     cam.startDetection(onDetectionStats);
   } catch (e) {
