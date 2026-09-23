@@ -1,0 +1,274 @@
+// On-device LLM through WebLLM: model list, loading, soul creation, dialogue and memory compaction.
+import type { ChatCompletion, ChatCompletionRequestNonStreaming, MLCEngine } from '@mlc-ai/web-llm';
+import { record, timed } from './report';
+import type { ChatMessage, Soul, SoulProfile } from './souls';
+
+export interface ModelOption {
+  id: string;
+  vramMB: number;
+}
+
+// The subset of the engine that soul creation and compaction use, so tests can mock it.
+export interface CompletionEngine {
+  chat: { completions: { create(request: ChatCompletionRequestNonStreaming): Promise<ChatCompletion> } };
+}
+
+export const HISTORY_WINDOW = 8;
+export const COMPACT_ABOVE = 16;
+export const KEEP_AFTER_COMPACT = 6;
+
+// Gemma's template rejects system prompts and Qwen3 emits thinking tokens, so both are left out.
+const WANTED = [
+  /^Qwen2\.5-0\.5B-Instruct-/,
+  /^Qwen2\.5-1\.5B-Instruct-/,
+  /^Qwen2\.5-3B-Instruct-/,
+  /^Llama-3\.2-1B-Instruct-/,
+  /^Llama-3\.2-3B-Instruct-/,
+];
+export const DEFAULT_MODEL = /^Qwen2\.5-1\.5B-Instruct-/;
+
+let engine: MLCEngine | null = null;
+let loadedId: string | null = null;
+let progress: (text: string) => void = () => {};
+
+export function filterModels(
+  list: readonly { model_id: string; vram_required_MB?: number }[],
+  f16: boolean,
+): ModelOption[] {
+  const suffix = f16 ? 'q4f16_1-MLC' : 'q4f32_1-MLC';
+  return list
+    .filter(m => m.model_id.endsWith(suffix) && WANTED.some(r => r.test(m.model_id)))
+    .map(m => ({ id: m.model_id, vramMB: Math.round(m.vram_required_MB ?? 0) }))
+    .sort((a, b) => a.vramMB - b.vramMB);
+}
+
+export async function listModels(f16: boolean): Promise<ModelOption[]> {
+  const { prebuiltAppConfig } = await import('@mlc-ai/web-llm');
+  return filterModels(prebuiltAppConfig.model_list, f16);
+}
+
+// The engine is created once; later loads, including after Free, reuse it with reload.
+export async function loadLLM(id: string, onProgress: (text: string) => void): Promise<void> {
+  progress = onProgress;
+  await timed(`load.llm.${id}`, async () => {
+    if (engine) {
+      await engine.reload(id);
+    } else {
+      const webllm = await import('@mlc-ai/web-llm');
+      engine = await webllm.CreateMLCEngine(id, { initProgressCallback: p => progress(p.text) });
+    }
+  });
+  loadedId = id;
+}
+
+export async function unloadLLM(): Promise<void> {
+  await engine?.unload();
+  loadedId = null;
+}
+
+function requireEngine(): MLCEngine {
+  if (!engine || !loadedId) throw new Error('Carga el LLM primero');
+  return engine;
+}
+
+// Soul creation.
+
+const SOUL_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    title: { type: 'string' },
+    archetype: { type: 'string' },
+    traits: { type: 'array', items: { type: 'string' } },
+    style: { type: 'string' },
+    catchphrase: { type: 'string' },
+    secret: { type: 'string' },
+    pitch: { type: 'number' },
+    rate: { type: 'number' },
+    greeting: { type: 'string' },
+  },
+  required: [
+    'name',
+    'title',
+    'archetype',
+    'traits',
+    'style',
+    'catchphrase',
+    'secret',
+    'pitch',
+    'rate',
+    'greeting',
+  ],
+};
+
+// Returns the first balanced {...} block, ignoring braces inside strings.
+export function extractFirstObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') inString = false;
+    } else if (c === '"') inString = true;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
+export function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Fall through to extraction: models sometimes wrap JSON in prose or code fences.
+  }
+  const block = extractFirstObject(text);
+  if (block) {
+    try {
+      return JSON.parse(block);
+    } catch {
+      // Reported below.
+    }
+  }
+  throw new Error('El modelo no devolvió JSON válido');
+}
+
+export function clamp(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'string' ? Number(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
+const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+export function normalizeSoul(raw: unknown): SoulProfile {
+  if (!raw || typeof raw !== 'object') throw new Error('El alma generada no es un objeto');
+  const r = raw as Record<string, unknown>;
+  const soul: SoulProfile = {
+    name: text(r.name),
+    title: text(r.title),
+    archetype: text(r.archetype),
+    traits: Array.isArray(r.traits) ? r.traits.map(text).filter(Boolean).slice(0, 5) : [],
+    style: text(r.style),
+    catchphrase: text(r.catchphrase),
+    secret: text(r.secret),
+    pitch: clamp(r.pitch, 0.6, 1.6, 1),
+    rate: clamp(r.rate, 0.8, 1.2, 1),
+    greeting: text(r.greeting),
+  };
+  if (!soul.name || !soul.greeting) throw new Error('El alma generada no tiene nombre o saludo');
+  return soul;
+}
+
+export async function createSoul(label: string, description: string): Promise<SoulProfile> {
+  const reply = await requireEngine().chat.completions.create({
+    temperature: 0.9,
+    max_tokens: 400,
+    response_format: { type: 'json_object', schema: JSON.stringify(SOUL_SCHEMA) },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Eres el director de un juego familiar en el que los objetos de una casa real cobran vida. ' +
+          'Creas personajes memorables, variados y aptos para niños. Respondes solo con JSON.',
+      },
+      {
+        role: 'user',
+        content:
+          `Objeto detectado: ${label}\nDescripción visual (en inglés): ${description}\n\n` +
+          'Crea el alma de este objeto, todo en español. Requisitos: un nombre propio original y divertido; ' +
+          'un título épico corto; un arquetipo en pocas palabras; de 3 a 5 rasgos; style describe en una frase ' +
+          'cómo habla; una muletilla corta; un secreto inofensivo; pitch entre 0.6 y 1.6 y rate entre 0.8 y 1.2 ' +
+          'según su carácter; greeting es su primera frase al despertar y debe mencionar algo concreto de su aspecto.',
+      },
+    ],
+  });
+  return normalizeSoul(parseJson(reply.choices[0]?.message.content ?? ''));
+}
+
+// Dialogue.
+
+export function systemPrompt(soul: Soul): string {
+  return [
+    `Eres ${soul.name}, ${soul.title}. Eres un objeto de una casa real que ha cobrado vida (${soul.label}).`,
+    `Tu aspecto: ${soul.description}`,
+    `Arquetipo: ${soul.archetype}. Rasgos: ${soul.traits.join(', ')}. Forma de hablar: ${soul.style}. ` +
+      `Muletilla: "${soul.catchphrase}".`,
+    `Tu secreto, que no cuentas fácilmente: ${soul.secret}.`,
+    `Lo que recuerdas de conversaciones anteriores: ${soul.memory || 'nada todavía, acabas de despertar'}.`,
+    'Reglas: responde en el idioma del jugador, en 1 a 3 frases cortas, sin emojis ni acotaciones.',
+    'Hablas con niños: sé divertido; puedes ser gruñón o dramático, pero nunca cruel ni aterrador.',
+    'Nunca pidas datos personales ni propongas secretos que haya que ocultar a los padres.',
+    'Nunca sugieras tocar enchufes, fuego o cosas calientes, ni subirse a sitios.',
+  ].join('\n');
+}
+
+// Last messages of the history; chat templates need a user turn right after the system prompt.
+export function trimHistory(history: readonly ChatMessage[], size = HISTORY_WINDOW): ChatMessage[] {
+  const recent = history.slice(-size);
+  while (recent[0]?.role === 'assistant') recent.shift();
+  return recent;
+}
+
+// Streams a reply; onDelta receives text fragments as they arrive.
+export async function chat(soul: Soul, userText: string, onDelta: (delta: string) => void): Promise<string> {
+  const start = performance.now();
+  let first = true;
+  let full = '';
+  const stream = await requireEngine().chat.completions.create({
+    stream: true,
+    temperature: 0.8,
+    max_tokens: 160,
+    messages: [
+      { role: 'system', content: systemPrompt(soul) },
+      ...trimHistory(soul.history),
+      { role: 'user', content: userText },
+    ],
+  });
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? '';
+    if (!delta) continue;
+    if (first) {
+      record('llm.firstToken', performance.now() - start);
+      first = false;
+    }
+    full += delta;
+    onDelta(delta);
+  }
+  record('llm.fullReply', performance.now() - start);
+  return full.trim();
+}
+
+// Memory.
+
+export const needsCompaction = (history: readonly ChatMessage[]) => history.length > COMPACT_ABOVE;
+
+// Folds everything but the last six messages into the memory summary.
+export async function compactMemory(soul: Soul, llm: CompletionEngine = requireEngine()): Promise<Soul> {
+  const older = soul.history.slice(0, -KEEP_AFTER_COMPACT);
+  const transcript = older.map(m => `${m.role === 'user' ? 'Jugador' : soul.name}: ${m.content}`).join('\n');
+  const reply = await llm.chat.completions.create({
+    temperature: 0.3,
+    max_tokens: 220,
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Resumes los recuerdos de un personaje. Escribes en español, en tercera persona, ' +
+          'de 3 a 5 frases, solo hechos concretos.',
+      },
+      {
+        role: 'user',
+        content:
+          `Recuerdos previos de ${soul.name}: ${soul.memory || 'ninguno'}\n\nConversación nueva:\n${transcript}\n\n` +
+          `Escribe el resumen actualizado de lo que ${soul.name} debe recordar, uniendo los recuerdos previos y los nuevos.`,
+      },
+    ],
+  });
+  const memory = reply.choices[0]?.message.content?.trim() || soul.memory;
+  return { ...soul, memory, history: soul.history.slice(-KEEP_AFTER_COMPACT) };
+}

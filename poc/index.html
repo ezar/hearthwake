@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1c1936" />
+    <title>Hearthwake · PoC M0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="top">
+      <h1>Hearthwake <small>PoC M0</small></h1>
+      <button id="btn-start" class="primary">Iniciar</button>
+    </header>
+
+    <main>
+      <section class="panel" aria-labelledby="h-device">
+        <h2 id="h-device">Dispositivo</h2>
+        <pre id="probe-out" class="mono">Pulsa Iniciar para analizar el dispositivo.</pre>
+      </section>
+
+      <section class="panel" aria-labelledby="h-models">
+        <h2 id="h-models">Modelos</h2>
+        <p class="hint">
+          Carga uno cada vez. Si Safari recarga la página, se ha quedado sin memoria: anótalo.
+        </p>
+
+        <div class="model">
+          <div><strong>Detector</strong><span>YOLOS tiny · objetos comunes</span></div>
+          <div class="actions">
+            <button data-load="detector" disabled>Cargar</button>
+            <button data-free="detector" disabled>Liberar</button>
+          </div>
+          <output id="st-detector">Sin cargar</output>
+        </div>
+
+        <div class="model">
+          <div><strong>Visión</strong><span>SmolVLM 256M · describe el objeto</span></div>
+          <div class="actions">
+            <button data-load="vlm" disabled>Cargar</button>
+            <button data-free="vlm" disabled>Liberar</button>
+          </div>
+          <output id="st-vlm">Sin cargar</output>
+        </div>
+
+        <div class="model">
+          <div><strong>LLM</strong><span>WebLLM · da vida y voz al alma</span></div>
+          <label class="sr-only" for="llm-model">Modelo de lenguaje</label>
+          <select id="llm-model" disabled></select>
+          <div class="actions">
+            <button data-load="llm" disabled>Cargar</button>
+            <button data-free="llm" disabled>Liberar</button>
+          </div>
+          <output id="st-llm">Sin cargar</output>
+        </div>
+
+        <div class="model">
+          <div><strong>Oído</strong><span>Whisper · transcribe lo que dices</span></div>
+          <label class="sr-only" for="stt-model">Modelo de transcripción</label>
+          <select id="stt-model" disabled>
+            <option value="onnx-community/whisper-tiny">whisper-tiny (~40 MB)</option>
+            <option value="onnx-community/whisper-base" selected>whisper-base (~80 MB)</option>
+          </select>
+          <div class="actions">
+            <button data-load="stt" disabled>Cargar</button>
+            <button data-free="stt" disabled>Liberar</button>
+          </div>
+          <output id="st-stt">Sin cargar</output>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-camera">
+        <h2 id="h-camera">Cámara</h2>
+        <div class="stage">
+          <video id="video" playsinline muted></video>
+          <canvas id="overlay" aria-label="Toca un objeto para elegirlo"></canvas>
+        </div>
+        <div class="row">
+          <button id="btn-camera" disabled>Abrir cámara</button>
+          <button id="btn-detect" disabled>Detectar</button>
+          <button id="btn-center" disabled>Usar el centro</button>
+        </div>
+        <p class="hint">
+          <span id="det-stats">Detector parado</span>.
+          <span id="selected">Toca un objeto enmarcado, o usa el centro si no lo reconoce.</span>
+        </p>
+        <button id="btn-wake" class="primary wide" disabled>Despertar objeto</button>
+      </section>
+
+      <section class="panel" aria-labelledby="h-soul">
+        <h2 id="h-soul">Alma</h2>
+        <div class="row">
+          <label class="sr-only" for="soul-list">Almas guardadas</label>
+          <select id="soul-list">
+            <option value="">Ninguna alma despierta</option>
+          </select>
+          <button id="btn-forget" disabled>Olvidar</button>
+        </div>
+        <div id="soul-card" class="soul-card" hidden>
+          <img id="soul-img" alt="" />
+          <div>
+            <h3 id="soul-name"></h3>
+            <p id="soul-title"></p>
+            <p id="soul-traits" class="hint"></p>
+            <details>
+              <summary>Qué recuerda</summary>
+              <p id="soul-memory" class="hint"></p>
+            </details>
+          </div>
+        </div>
+        <div id="transcript" class="transcript" aria-live="polite"></div>
+        <button id="btn-talk" class="talk" disabled>Mantén pulsado para hablar</button>
+        <form id="text-form" class="row">
+          <label class="sr-only" for="text-input">Mensaje</label>
+          <input id="text-input" placeholder="O escribe aquí" autocomplete="off" disabled />
+          <button id="btn-send" disabled>Enviar</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="h-report">
+        <h2 id="h-report">Informe</h2>
+        <div class="row">
+          <button id="btn-report" disabled>Copiar informe</button>
+        </div>
+        <pre id="log" class="mono log"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
