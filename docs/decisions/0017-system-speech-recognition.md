@@ -23,3 +23,16 @@ The first complete camera wake on the iPhone ran in Chrome for iOS, with the cam
 ## Amendment: talking to a saved soul after a reload
 
 iOS reloads a background tab, for example when the tester switches apps to paste the report. The soul survives the reload, because it is saved, but the LLM does not. Typing and talking were then both disabled, with no hint why. They are now enabled for any saved soul once Start is tapped on a WebGPU device, and the first message loads the LLM. Its load is timed apart (`load.llm.*`), but `talk.firstAudio*` for that first message includes it.
+
+## Amendment: a push to talk that never ends
+
+On the iPhone, in Chrome for iOS, the first "Hold to talk" left the button dead and the page unresponsive. Two things can cause this:
+
+- WebKit does not always fire `end` after `stop()`. The page then waited for it forever, while marked busy.
+- The permission prompt that opens on the first press can swallow the release. The button then stayed "pressed" and ignored new presses.
+
+Now:
+
+- After a release, the page waits at most 3 s for `end`. Then it aborts the recognizer and keeps what it heard.
+- If a release was lost, the next tap on the button counts as the release.
+- Recognition errors are logged.

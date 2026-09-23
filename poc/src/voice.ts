@@ -107,10 +107,14 @@ interface Recognition {
   onend: (() => void) | null;
   start(): void;
   stop(): void;
+  abort(): void;
 }
 type RecognitionConstructor = new () => Recognition;
 
 export const SYSTEM_STT = 'system';
+// WebKit on iOS does not always fire `end` after stop(), for example after the permission prompt.
+// Waiting longer than this for it would leave the page busy for good.
+export const STOP_TIMEOUT_MS = 3000;
 
 function recognitionConstructor(): RecognitionConstructor | null {
   const g = globalThis as {
@@ -146,7 +150,9 @@ export function startListening(): void {
     }
   };
   r.onerror = e => {
-    if (e.error !== 'no-speech' && e.error !== 'aborted') recognitionError = e.error;
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    recognitionError = e.error;
+    log(`Speech recognition error: ${e.error}`);
   };
   recognitionEnded = new Promise(resolve => {
     r.onend = () => resolve();
@@ -161,7 +167,16 @@ export async function stopListening(): Promise<string> {
   if (!r) return '';
   recognition = null;
   r.stop();
-  await recognitionEnded;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = await Promise.race([
+    recognitionEnded.then(() => false),
+    new Promise<boolean>(resolve => (timer = setTimeout(() => resolve(true), STOP_TIMEOUT_MS))),
+  ]);
+  clearTimeout(timer);
+  if (timedOut) {
+    log('Speech recognition did not end after release; stopped it');
+    r.abort();
+  }
   if (recognitionError) throw new Error(`Speech recognition: ${recognitionError}`);
   return heard.join(' ').trim();
 }

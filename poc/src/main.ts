@@ -612,8 +612,13 @@ let recording = false;
 talk.addEventListener('contextmenu', e => e.preventDefault());
 
 talk.addEventListener('pointerdown', async e => {
-  if (talk.disabled || pressed) return;
+  if (talk.disabled) return;
   e.preventDefault();
+  // A release can be lost, for example to the microphone permission prompt. Then the next tap sends.
+  if (pressed || recording) {
+    void endTalk();
+    return;
+  }
   pressed = true;
   talk.setPointerCapture?.(e.pointerId);
   voice.stopSpeaking();

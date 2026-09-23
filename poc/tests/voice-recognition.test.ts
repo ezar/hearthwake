@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { hasSystemRecognition, startListening, stopListening } from '../src/voice';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { hasSystemRecognition, startListening, STOP_TIMEOUT_MS, stopListening } from '../src/voice';
 
 type Result = { isFinal: boolean; 0: { transcript: string } };
 
@@ -17,8 +17,13 @@ class FakeRecognition {
     FakeRecognition.last = this;
   }
   start() {}
+  endsOnStop = true;
+  aborted = false;
   stop() {
-    queueMicrotask(() => this.onend?.());
+    if (this.endsOnStop) queueMicrotask(() => this.onend?.());
+  }
+  abort() {
+    this.aborted = true;
   }
   hear(transcript: string, isFinal = true) {
     const resultIndex = this.results.length;
@@ -31,6 +36,7 @@ const g = globalThis as { webkitSpeechRecognition?: unknown };
 
 afterEach(() => {
   delete g.webkitSpeechRecognition;
+  vi.useRealTimers();
 });
 
 describe('system speech recognition', () => {
@@ -59,5 +65,18 @@ describe('system speech recognition', () => {
     startListening();
     FakeRecognition.last!.onerror?.({ error: 'not-allowed' });
     await expect(stopListening()).rejects.toThrow('not-allowed');
+  });
+
+  it('gives up waiting when the recognizer never ends, keeping what it heard', async () => {
+    vi.useFakeTimers();
+    g.webkitSpeechRecognition = FakeRecognition;
+    startListening();
+    const r = FakeRecognition.last!;
+    r.endsOnStop = false;
+    r.hear('Hello');
+    const text = stopListening();
+    await vi.advanceTimersByTimeAsync(STOP_TIMEOUT_MS);
+    await expect(text).resolves.toBe('Hello');
+    expect(r.aborted).toBe(true);
   });
 });
