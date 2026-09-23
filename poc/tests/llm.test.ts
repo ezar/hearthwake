@@ -6,11 +6,13 @@ import {
   clamp,
   compactMemory,
   describeFailedOutput,
+  endAtSentence,
   extractFirstObject,
   filterModels,
   needsCompaction,
   normalizeSoul,
   parseJson,
+  stripStageDirections,
   trimHistory,
   type CompletionEngine,
 } from '../src/llm';
@@ -238,10 +240,34 @@ describe('SOUL_SCHEMA', () => {
         items?: { maxLength?: number };
       }
     >;
-    expect(props.traits).toMatchObject({ minItems: 3, maxItems: 5, items: { maxLength: 30 } });
+    expect(props.traits).toMatchObject({ minItems: 3, maxItems: 5, items: { maxLength: 20 } });
     for (const [key, prop] of Object.entries(props)) {
       if (prop.type === 'string') expect(prop.maxLength, key).toBeGreaterThan(0);
     }
     expect(SOUL_SCHEMA.required).toHaveLength(Object.keys(props).length);
+  });
+});
+
+describe('stripStageDirections', () => {
+  it('removes bracketed, starred and cut-off stage directions', () => {
+    expect(stripStageDirections('Reboot, reboot! (Suddenly turns off and on)')).toBe('Reboot, reboot!');
+    expect(stripStageDirections('Welcome, shining star! (Sparky nods,')).toBe('Welcome, shining star!');
+    expect(stripStageDirections('*yawns* Hello there [stretches] friend .')).toBe('Hello there friend.');
+  });
+
+  it('leaves plain text alone', () => {
+    expect(stripStageDirections('  Nice to meet you!  ')).toBe('Nice to meet you!');
+  });
+});
+
+describe('endAtSentence', () => {
+  it('cuts a greeting that stopped mid-sentence back to its last full sentence', () => {
+    expect(endAtSentence('Hello! I am white and shiny. So grab a')).toBe('Hello! I am white and shiny.');
+  });
+
+  it('keeps complete text and text with no sentence end at all', () => {
+    expect(endAtSentence('Hello, friend!')).toBe('Hello, friend!');
+    expect(endAtSentence('"Ahoy there."')).toBe('"Ahoy there."');
+    expect(endAtSentence('hello friend')).toBe('hello friend');
   });
 });
