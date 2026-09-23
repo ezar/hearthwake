@@ -85,6 +85,7 @@ function refreshButtons(): void {
   }
   button('btn-start').disabled = busy;
   button('btn-camera').disabled = !started || busy || cameraOpen;
+  $<HTMLSelectElement>('camera-res').disabled = !started || busy;
   button('btn-detect').disabled = !cameraOpen || !loaded.detector;
   button('btn-center').disabled = !cameraOpen;
   // In two-step mode waking loads what it needs itself, across page reloads.
@@ -267,13 +268,20 @@ cam.initCamera($<HTMLVideoElement>('video'), $<HTMLCanvasElement>('overlay'), se
   refreshButtons();
 });
 
+const cameraResolution = () => $<HTMLSelectElement>('camera-res').value as cam.CameraResolution;
+
 button('btn-camera').addEventListener('click', () =>
   withBusy('open camera', async () => {
-    await cam.startCamera();
+    await cam.startCamera(cameraResolution());
     cameraOpen = true;
     button('btn-camera').textContent = 'Camera open';
   }),
 );
+
+// Changing the resolution with the camera open reopens it at once.
+$<HTMLSelectElement>('camera-res').addEventListener('change', () => {
+  if (cameraOpen) void withBusy('reopen camera', () => cam.startCamera(cameraResolution()));
+});
 
 // Detection runs outside the busy flag, so it keeps its own crash marker while the loop is alive.
 let detectMarker: number | null = null;
