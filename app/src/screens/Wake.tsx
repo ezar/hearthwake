@@ -1,0 +1,165 @@
+// Point the camera at a thing, frame it in the square and wake it. While framing, the classifier guesses
+// what it is, a few times a second, once the LLM has loaded (the LLM always loads first: ADR 0016).
+import { useEffect, useRef, useState } from 'react';
+import {
+  closeCamera,
+  cropCentre,
+  FRAME_SHARE,
+  framedSquare,
+  openCamera,
+  thumbnailOf,
+} from '../engine/camera';
+import { engineState, ensureLlm, ensureVision } from '../engine/engine';
+import { log } from '../engine/metrics';
+import { unlockSpeech } from '../engine/voice';
+import { setPendingWake } from '../engine/wake';
+import { goBack, navigate } from '../router';
+import { Close, Flame } from '../ui/icons';
+import { Link } from '../ui/Link';
+
+const GUESS_EVERY_MS = 900;
+const GUESS_MIN_SCORE = 0.2;
+
+export function Wake() {
+  const video = useRef<HTMLVideoElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [guess, setGuess] = useState<string | null>(null);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const el = video.current!;
+    const mock = engineState().mock;
+    (async () => {
+      try {
+        if (mock) mockCamera(el);
+        else stream = await openCamera(el);
+        if (cancelled) return closeCamera(stream, el);
+        setReady(true);
+      } catch (e) {
+        const name = (e as DOMException).name;
+        log(`Camera error: ${name} ${(e as Error).message}`);
+        setError(
+          name === 'NotAllowedError'
+            ? 'Hearthwake is not allowed to use the camera. Allow it in your browser settings, or describe the thing instead.'
+            : 'The camera could not start. Close other apps that use it, or describe the thing instead.',
+        );
+        return;
+      }
+      try {
+        await ensureLlm();
+        const vision = await ensureVision();
+        if (cancelled) return;
+        timer = setInterval(() => {
+          if (!el.videoWidth && !mock) return;
+          const crop = mock
+            ? cropCentre(mockFrame(), 224)
+            : cropCentre(el, 224, framedSquare(el, frameRef.current));
+          const top = vision.classify(crop)[0];
+          setGuess(top && top.score >= GUESS_MIN_SCORE ? top.label : null);
+        }, GUESS_EVERY_MS);
+      } catch {
+        // No live guesses; waking still works and reports its own errors.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      closeCamera(stream, el);
+    };
+  }, []);
+
+  const wakeIt = () => {
+    unlockSpeech();
+    const el = video.current!;
+    const crop = engineState().mock
+      ? cropCentre(mockFrame())
+      : cropCentre(el, undefined, framedSquare(el, frameRef.current));
+    setPendingWake({ kind: 'photo', crop, thumbnail: thumbnailOf(crop) });
+    navigate({ name: 'waking' }, { replace: true });
+  };
+
+  return (
+    <main className="screen screen--flush wake">
+      <video ref={video} className="wake__video" playsInline muted aria-label="Camera view" />
+      <div
+        ref={frameRef}
+        className="wake__frame"
+        style={{ width: `${FRAME_SHARE * 100}vmin` }}
+        aria-hidden={!guess}
+      >
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M1 16V6a5 5 0 0 1 5-5h10M84 1h10a5 5 0 0 1 5 5v10M99 84v10a5 5 0 0 1-5 5H84M16 99H6a5 5 0 0 1-5-5V84" />
+        </svg>
+        {guess && (
+          <span className="wake__guess" aria-live="polite">
+            {/^[aeiou]/i.test(guess) ? 'An' : 'A'} {guess}?
+          </span>
+        )}
+      </div>
+
+      <header className="bar wake__top">
+        <button className="icon-btn wake__close" aria-label="Close" onClick={() => goBack({ name: 'home' })}>
+          <Close size={20} />
+        </button>
+        <span className="pill">
+          <span className="pill__dot" style={{ background: 'var(--sage)' }} /> All on this device
+        </span>
+      </header>
+
+      <section className="wake__sheet">
+        {error ? (
+          <>
+            <p className="notice notice--error" role="alert">
+              {error}
+            </p>
+            <Link to={{ name: 'describe' }} className="btn btn--primary btn--block">
+              Describe it instead
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="display wake__hint">Frame one thing and hold still</p>
+            <button className="wake__shutter" aria-label="Wake it" onClick={wakeIt} disabled={!ready}>
+              <Flame size={34} />
+            </button>
+            <span className="lede" style={{ fontSize: 14 }}>
+              {ready ? 'Tap to wake it' : 'Opening the camera…'}
+            </span>
+          </>
+        )}
+      </section>
+    </main>
+  );
+}
+
+// The mock engine has no camera: a painted frame stands in, so the flow can be tested headless.
+let frame: HTMLCanvasElement | null = null;
+function mockFrame(): HTMLCanvasElement {
+  if (frame) return frame;
+  frame = document.createElement('canvas');
+  frame.width = 720;
+  frame.height = 1280;
+  const ctx = frame.getContext('2d')!;
+  ctx.fillStyle = '#6f6a66';
+  ctx.fillRect(0, 0, 720, 1280);
+  ctx.fillStyle = '#c98a4f';
+  ctx.fillRect(160, 300, 400, 680);
+  ctx.fillStyle = '#d9d4cf';
+  ctx.fillRect(360, 300, 200, 680);
+  return frame;
+}
+
+function mockCamera(video: HTMLVideoElement): void {
+  const canvas = mockFrame();
+  const stream = (
+    canvas as HTMLCanvasElement & { captureStream?: (fps: number) => MediaStream }
+  ).captureStream?.(5);
+  if (stream) {
+    video.srcObject = stream;
+    void video.play().catch(() => undefined);
+  }
+}

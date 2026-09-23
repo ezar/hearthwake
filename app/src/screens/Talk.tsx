@@ -1,0 +1,298 @@
+// Talking with a soul: hold to talk (system speech recognition) or type; replies stream in and are spoken
+// sentence by sentence as they arrive.
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { ensureLlm, useEngine } from '../engine/engine';
+import { compactMemory, needsCompaction, reply } from '../engine/llm';
+import { log, record } from '../engine/metrics';
+import {
+  canHear,
+  listen,
+  sentenceSplitter,
+  speak,
+  stopSpeaking,
+  unlockSpeech,
+  type Listening,
+} from '../engine/voice';
+import { goBack, navigate } from '../router';
+import { loadSettings } from '../store/settings';
+import { getSoul, saveSoul, useSouls, type ChatMessage, type Soul } from '../store/souls';
+import { Back, Keyboard, Mic, Send } from '../ui/icons';
+import { Link } from '../ui/Link';
+import { Portrait } from '../ui/Portrait';
+
+type Mode = 'voice' | 'text';
+type Busy = null | 'hearing' | 'thinking' | 'remembering';
+
+export function Talk({ id }: { id: string }) {
+  const souls = useSouls();
+  const soul = souls?.find(s => s.id === id) ?? null;
+  const { llm, device } = useEngine();
+  const hearing = !!device?.speechRecognition && canHear();
+  const [mode, setMode] = useState<Mode>(hearing ? 'voice' : 'text');
+  const [busy, setBusy] = useState<Busy>(null);
+  const [draft, setDraft] = useState('');
+  const [caption, setCaption] = useState('');
+  const [streaming, setStreaming] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const listener = useRef<Listening | null>(null);
+  const releasedAt = useRef(0);
+  const end = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (souls && !soul) navigate({ name: 'home' }, { replace: true });
+  }, [souls, soul]);
+
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' });
+  }, [soul?.history.length, streaming, pending, caption]);
+
+  useEffect(() => () => stopSpeaking(), []);
+
+  if (!soul) return <main className="screen" />;
+
+  const send = async (text: string, fromVoice: boolean) => {
+    const words = text.trim();
+    if (!words) return;
+    setError(null);
+    setPending(words);
+    setBusy('thinking');
+    const start = performance.now();
+    const speakAloud = (await loadSettings()).speak;
+    const splitter = sentenceSplitter();
+    let spoke = false;
+    const say = (sentence: string) => {
+      if (!speakAloud) return;
+      speak(sentence, soul, () => {
+        if (spoke) return;
+        spoke = true;
+        record(
+          fromVoice ? 'talk.firstAudioFromRelease' : 'talk.firstAudioFromText',
+          performance.now() - (fromVoice ? releasedAt.current : start),
+        );
+      });
+    };
+    try {
+      const backend = await ensureLlm();
+      const current = getSoul(soul.id) ?? soul;
+      setStreaming('');
+      let shown = '';
+      const answer = await reply(backend, current, words, delta => {
+        shown += delta;
+        setStreaming(shown);
+        splitter.push(delta).forEach(say);
+      });
+      splitter.flush().forEach(say);
+      const now = Date.now();
+      const history: ChatMessage[] = [
+        ...current.history,
+        { role: 'user', content: words, at: now },
+        { role: 'assistant', content: answer || shown.trim(), at: now },
+      ];
+      let next: Soul = { ...current, history, lastTalkedAt: now };
+      await saveSoul(next);
+      setStreaming(null);
+      setPending(null);
+      if (needsCompaction(history)) {
+        setBusy('remembering');
+        try {
+          next = await compactMemory(backend, next);
+          await saveSoul(next);
+        } catch (e) {
+          log(`Memory compaction failed: ${(e as Error).message}`);
+        }
+      }
+    } catch (e) {
+      setStreaming(null);
+      setPending(null);
+      setDraft(words);
+      setError((e as Error).message || 'It could not answer');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Push to talk. A release can be lost (for example to the permission prompt), so a tap while
+  // listening also ends it.
+  const startListening = () => {
+    if (busy || listening) return;
+    unlockSpeech();
+    stopSpeaking();
+    setError(null);
+    setCaption('');
+    try {
+      listener.current = listen(setCaption);
+      setListening(true);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const stopListening = async () => {
+    const l = listener.current;
+    if (!l) return;
+    listener.current = null;
+    setListening(false);
+    releasedAt.current = performance.now();
+    setBusy('hearing');
+    try {
+      const heard = await l.stop();
+      record('stt.transcribe', performance.now() - releasedAt.current);
+      setBusy(null);
+      setCaption('');
+      if (heard) await send(heard, true);
+      else setError("I didn't catch that. Hold the button while you speak.");
+    } catch (e) {
+      setBusy(null);
+      setCaption('');
+      setError((e as Error).message);
+    }
+  };
+
+  const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (listening) return void stopListening();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    startListening();
+  };
+  const onPointerUp = () => {
+    if (listening) void stopListening();
+  };
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (e.type === 'keydown' && !e.repeat) startListening();
+    if (e.type === 'keyup') void stopListening();
+  };
+
+  const status =
+    busy === 'hearing'
+      ? 'Listening back…'
+      : busy === 'remembering'
+        ? `${soul.name} is tidying its memories…`
+        : busy === 'thinking' && llm.state === 'loading'
+          ? `Waking ${soul.name}'s voice… ${Math.round(llm.progress * 100)}%`
+          : null;
+
+  return (
+    <main className="screen screen--flush talk">
+      <header className="talk__head">
+        <button
+          className="icon-btn icon-btn--bare"
+          aria-label="Back to your hearth"
+          onClick={() => goBack({ name: 'home' })}
+        >
+          <Back />
+        </button>
+        <Link to={{ name: 'soul', id: soul.id }} className="talk__who">
+          <Portrait soul={soul} size={44} />
+          <span className="stack" style={{ gap: 0, minWidth: 0 }}>
+            <span className="talk__name">{soul.name}</span>
+            <span className="talk__title">{soul.title}</span>
+          </span>
+        </Link>
+      </header>
+
+      <section className="talk__log" aria-label="Conversation" aria-live="polite">
+        <p className="talk__day">
+          Woke up{' '}
+          {new Date(soul.createdAt).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </p>
+        {soul.history.map((m, i) => (
+          <p key={i} className={`bubble bubble--${m.role === 'user' ? 'me' : 'it'}`}>
+            {m.content}
+          </p>
+        ))}
+        {pending && <p className="bubble bubble--me">{pending}</p>}
+        {streaming !== null && (
+          <p className="bubble bubble--it">
+            {streaming || <span className="dots" aria-label={`${soul.name} is thinking`} />}
+          </p>
+        )}
+        {listening && <p className="bubble bubble--me bubble--caption">{caption || 'Listening…'}</p>}
+        {error && (
+          <p className="notice notice--error" role="alert">
+            {error}
+          </p>
+        )}
+        <div ref={end} />
+      </section>
+
+      <footer className="talk__foot">
+        {status && (
+          <p className="talk__status" role="status">
+            {status}
+          </p>
+        )}
+        {mode === 'voice' ? (
+          <div className="talk__row">
+            <button
+              className="icon-btn talk__switch"
+              aria-label="Type instead"
+              onClick={() => setMode('text')}
+            >
+              <Keyboard />
+            </button>
+            <button
+              className={`btn btn--primary talk__hold${listening ? ' talk__hold--on' : ''}`}
+              onPointerDown={onPointerDown}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onKeyDown={onKey}
+              onKeyUp={onKey}
+              onContextMenu={e => e.preventDefault()}
+              disabled={!!busy && !listening}
+              aria-pressed={listening}
+            >
+              <Mic />
+              {listening ? 'Listening… let go to send' : 'Hold to talk'}
+            </button>
+          </div>
+        ) : (
+          <form
+            className="talk__row"
+            onSubmit={e => {
+              e.preventDefault();
+              unlockSpeech();
+              const text = draft;
+              setDraft('');
+              void send(text, false);
+            }}
+          >
+            {hearing && (
+              <button
+                type="button"
+                className="icon-btn talk__switch"
+                aria-label="Talk instead"
+                onClick={() => setMode('voice')}
+              >
+                <Mic />
+              </button>
+            )}
+            <label className="sr-only" htmlFor="talk-input">
+              Message to {soul.name}
+            </label>
+            <input
+              id="talk-input"
+              className="field__input talk__input"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              placeholder={`Say something to ${soul.name}`}
+              autoComplete="off"
+              enterKeyHint="send"
+              maxLength={300}
+            />
+            <button className="icon-btn talk__send" aria-label="Send" disabled={!!busy || !draft.trim()}>
+              <Send />
+            </button>
+          </form>
+        )}
+      </footer>
+    </main>
+  );
+}

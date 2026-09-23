@@ -6,11 +6,12 @@ Household objects wake up and talk, with every AI model running locally in the b
 
 M0 (the feasibility spike) is closed: see `docs/decisions/0018-close-m0.md` for what it proved and the model set M1 uses.
 
+- `app/` is the app: Vite + React 19 + TypeScript (strict), served at `/hearthwake/` (ADR 0019). `?mock` swaps in a canned engine for testing without WebGPU.
 - `poc/` is the M0 spike: Vite + TypeScript (strict), vanilla DOM, spec in `docs/m0-spike.md`. Keep it building and deployed at `/hearthwake/poc/`; change it only to keep it working. `poc/reference/` is the original plain-JS prototype, kept as a guide only; it is not built, linted or tested.
 - `docs/models.md` collects measured results per device. `docs/decisions/` holds short ADRs; record every decision there.
 - Code, comments, identifiers, commits and docs in English. UI strings and souls in English too (ADR 0012).
 
-## Commands (run in `poc/`)
+## Commands (run in `app/` or `poc/`)
 
 ```
 npm ci
@@ -22,4 +23,4 @@ npm test
 npm run build
 ```
 
-CI (`.github/workflows/poc.yml`) runs the same checks and deploys `main` to GitHub Pages at `/hearthwake/poc/`.
+CI (`.github/workflows/ci.yml`) runs the same checks for both projects and deploys `main` to GitHub Pages: the app at `/hearthwake/`, the spike at `/hearthwake/poc/`.
