@@ -4,7 +4,7 @@ Household objects wake up and talk, with every AI model running locally in the b
 
 ## Current milestone: M0 feasibility spike
 
-Build only what `docs/m0-spike.md` describes. M0 is closed (ADR 0017); M1 starts once one of its options is chosen. Read it before changing anything in `poc/`.
+Build only what `docs/m0-spike.md` describes. Read it before changing anything in `poc/`.
 
 - `poc/` is the spike: Vite + TypeScript (strict), vanilla DOM. `poc/reference/` is the original plain-JS prototype, kept as a guide only; it is not built, linted or tested.
 - `docs/models.md` collects measured results per device. `docs/decisions/` holds short ADRs; record every decision there.

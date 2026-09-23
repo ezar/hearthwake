@@ -17,10 +17,11 @@ Fill in from the copied reports (`Copiar informe`) after each device session. Ti
 | Detector (yolos-tiny) | 305–361 (cache) | WebGPU: killed at first frame. WASM: 0.2 fps | | |
 | Detector (MediaPipe EfficientDet-Lite0, WebGL) | 129–462 (cache), 4392 cold | no; 56 ms/frame, ~15 fps | | |
 | Vision (SmolVLM 256M) | 597–1000 (cache) | alone: no. After a reload: out of memory | | |
-| LLM (Llama-3.2-1B-Instruct-q4f16_1-MLC) | 1800–4800 (cache) | often on the first load; always with any other model or the camera | | |
+| LLM (Llama-3.2-1B-Instruct-q4f16_1-MLC) | 1800–4800 (cache), 38455 cold (Chrome iOS) | Safari: often on the first load, and with other models or the camera. Chrome iOS, fresh: no, even with the camera and classifier | | |
+| Vision (MediaPipe EfficientNet-Lite2 int8 + colours) | 2281 cold (Chrome iOS) | no | | |
 | Hearing (whisper-base / tiny) | | whisper-base with the LLM: killed | | |
 
-Which combination coexists on the iPhone, and which must be swapped: detector and vision coexist with the camera. The LLM coexists with nothing: it only generates in a tab that loaded nothing else, and swapping by reload does not free memory (ADR 0017).
+Which combination coexists on the iPhone, and which must be swapped: detector and vision coexist with the camera. In a freshly started browser (Chrome iOS) the LLM, the classifier and the camera at 720p coexist in one page and a wake completes. In Safari after many attempts, the LLM coexisted with nothing, and a reload does not free memory. Still to check: Safari after force-quitting it, and SmolVLM or the detector beside the LLM.
 
 ### Log
 
@@ -83,7 +84,13 @@ Which combination coexists on the iPhone, and which must be swapped: detector an
   - **Two-step wake with SmolVLM, fresh tab:** SmolVLM loaded in 800 ms and described in 3112 ms. The description was concrete, but it looped: "The white door has a metallic handle on the right side. The door has a white frame. The door has a white doorknob…", repeated until the token cap.
   - After the automatic reload, loading Llama-3.2-1B killed the tab. On the next page it loaded in 2739 ms, and the tab died about 11 s into soul generation.
   - **One-page wake** with the camera open at 720p: the tab died while loading the LLM, before any vision model ran.
-  - Conclusion: on this iPhone, Llama-3.2-1B generates only in a page that has loaded nothing else since the tab was opened. Neither a reload nor a few MB of vision beside it is enough. M0 stops here (ADR 0017).
+  - These Safari runs came after dozens of attempts and crashes in the same browser session.
+- 2026-09-24, iPhone, **Chrome 154 for iOS** (WebKit, iOS 27.2), fresh browser with empty caches (33 MB used): **the first complete camera wake on the iPhone.**
+  - One page, with the camera open at 720p and the default classifier. Nothing crashed.
+  - Llama-3.2-1B loaded in 38455 ms (a cold download) and the classifier in 2281 ms.
+  - The classifier returned "sliding door 49%, wardrobe 10%, shoji 7%". The description, "An orange and grey sliding door.", took 80 ms.
+  - `wake.createSoul` took 18123 ms and `wake.total` 58942 ms. Without the download, the wake would take about 20 s, with the soul as the slow part.
+  - Next: talk to the soul (text, then `SpeechRecognition`), and repeat the wake in Safari after force-quitting it, to tell a Safari limit from a worn-out process.
 
 ## Built-in AI on iOS
 
