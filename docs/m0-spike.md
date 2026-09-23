@@ -88,7 +88,7 @@ Set `runtime.device` to `webgpu` or `wasm` and `runtime.f16` from the probe. Eve
 
 ## 5. Models
 
-> Amended by ADRs 0008 and 0009 after the first iPhone runs: models load in phases by default, the default LLM is Llama 3.2 1B, Gemma 3 1B is allowed, hearing defaults to whisper-tiny, and the detector is optional and can run on the CPU.
+> Amended by ADRs 0008 and 0009 after the first iPhone runs: models load in phases by default, the default LLM is Llama 3.2 1B, Gemma 3 1B is allowed, hearing defaults to whisper-tiny, and the detector is optional. ADR 0010 makes the detector selectable (MediaPipe EfficientDet-Lite0 on WebGL by default, or YOLOS tiny), each on GPU or CPU.
 
 Each model has Load and Free buttons, a status line and a load timing. Models are loaded one at a time on purpose: if Safari reloads the page, it ran out of memory, and that is a result we need to record.
 

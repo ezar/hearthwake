@@ -1,7 +1,6 @@
 // Camera, live object detection, overlay drawing, selection and cropping.
-import type { RawImage as RawImageType } from '@huggingface/transformers';
+import { createDetector, type DetectorBackend, type DetectorChoice } from './detectors';
 import { log, record, timed } from './report';
-import { runtime, type Device } from './runtime';
 
 export interface Box {
   xmin: number;
@@ -22,13 +21,7 @@ export interface DetectionStats {
   count: number;
 }
 
-type Detector = ((image: RawImageType, options: object) => Promise<Detection[]>) & {
-  dispose(): Promise<void>;
-};
-
 export const CENTRE_LABEL = 'objeto';
-const DETECT_WIDTH = 320;
-const THRESHOLD = 0.6;
 const TRACK_DISTANCE = 0.2;
 const CROP_PADDING = 0.06;
 const LAMP = '#f5b942';
@@ -39,8 +32,8 @@ let video: HTMLVideoElement;
 let overlay: HTMLCanvasElement;
 let octx: CanvasRenderingContext2D;
 let onSelect: (sel: Detection | null) => void;
-let detector: Detector | null = null;
-let RawImage: typeof RawImageType | null = null;
+let detector: DetectorBackend | null = null;
+let detectorChoice: DetectorChoice | null = null;
 let running = false;
 let boxes: Detection[] = [];
 let selected: Detection | null = null;
@@ -107,22 +100,17 @@ function resize(): void {
   draw();
 }
 
-// The device defaults to the probe's, but the tester can force WASM to rule out a WebGPU problem.
-export async function loadDetector(device: Device = runtime.device): Promise<void> {
-  const tf = await import('@huggingface/transformers');
-  RawImage = tf.RawImage;
-  const dtype = device === 'webgpu' ? 'fp32' : 'q8';
-  detector = await timed(
-    `load.detector.${device}`,
-    async () =>
-      (await tf.pipeline('object-detection', 'Xenova/yolos-tiny', { device, dtype })) as unknown as Detector,
-  );
+// The tester picks the detector and where it runs (ADR 0010).
+export async function loadDetector(choice: DetectorChoice): Promise<void> {
+  detector = await timed(`load.detector.${choice}`, () => createDetector(choice));
+  detectorChoice = choice;
 }
 
 export async function unloadDetector(): Promise<void> {
   running = false;
   await detector?.dispose();
   detector = null;
+  detectorChoice = null;
   boxes = [];
   draw();
 }
@@ -144,17 +132,11 @@ async function loop(onStats: (s: DetectionStats | null) => void): Promise<void> 
   let frames = 0;
   let totalMs = 0;
   let windowStart = performance.now();
-  const frame = document.createElement('canvas');
-  const fctx = frame.getContext('2d', { willReadFrequently: true })!;
-  while (running && detector && RawImage) {
+  const metric = `detect.frame.${detectorChoice}`;
+  while (running && detector) {
     const t = performance.now();
-    frame.width = DETECT_WIDTH;
-    frame.height = Math.round((DETECT_WIDTH * video.videoHeight) / video.videoWidth);
-    fctx.drawImage(video, 0, 0, frame.width, frame.height);
-    const { data } = fctx.getImageData(0, 0, frame.width, frame.height);
-    const image = new RawImage(data, frame.width, frame.height, 4).rgb();
     try {
-      boxes = await detector(image, { threshold: THRESHOLD, percentage: true });
+      boxes = await detector.detect(video);
     } catch (e) {
       log(`Detection error: ${(e as Error).message}`);
       break;
@@ -166,7 +148,7 @@ async function loop(onStats: (s: DetectionStats | null) => void): Promise<void> 
     }
     draw();
     const ms = performance.now() - t;
-    record('detect.frame', ms, true);
+    record(metric, ms, true);
     frames++;
     totalMs += ms;
     const elapsed = performance.now() - windowStart;

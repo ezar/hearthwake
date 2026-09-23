@@ -35,11 +35,13 @@
         </label>
 
         <div class="model">
-          <div><strong>Detector</strong><span>YOLOS tiny · objetos comunes · opcional</span></div>
-          <label class="sr-only" for="detector-device">Dónde ejecutar el detector</label>
-          <select id="detector-device" disabled>
-            <option value="webgpu" selected>En la GPU (WebGPU)</option>
-            <option value="wasm">En la CPU (más lento, sin GPU)</option>
+          <div><strong>Detector</strong><span>Objetos comunes · opcional</span></div>
+          <label class="sr-only" for="detector-choice">Detector y dónde ejecutarlo</label>
+          <select id="detector-choice" disabled>
+            <option value="mediapipe-gpu" selected>MediaPipe EfficientDet · GPU (WebGL)</option>
+            <option value="mediapipe-cpu">MediaPipe EfficientDet · CPU</option>
+            <option value="yolos-webgpu">YOLOS tiny · GPU (WebGPU)</option>
+            <option value="yolos-wasm">YOLOS tiny · CPU (WASM, lento)</option>
           </select>
           <div class="actions">
             <button data-load="detector" disabled>Cargar</button>
