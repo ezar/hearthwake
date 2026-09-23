@@ -77,13 +77,20 @@ export function endActivity(id: number): void {
 
 // Call once at startup. If the last session died mid-activity, its log and timings are restored
 // and the activities are returned; otherwise the saved mirror is discarded and a fresh session starts.
-export function restoreAfterCrash(): Activity[] | null {
+// keepLog: the page reloaded on purpose (a two-step wake), so its log and timings carry over too.
+export function restoreAfterCrash(keepLog = false): Activity[] | null {
   const stored = readJson<Activity | Activity[]>(ACTIVITY_KEY);
   const activities = stored ? (Array.isArray(stored) ? stored : [stored]) : [];
   const saved = readJson<{ events?: string[]; timings?: Record<string, number[]> }>(REPORT_KEY);
   remove(ACTIVITY_KEY);
   if (!activities.length) {
-    remove(REPORT_KEY);
+    if (keepLog && saved) {
+      events.push(...(saved.events ?? []), '--- page reloaded to continue a wake ---');
+      for (const [name, values] of Object.entries(saved.timings ?? {}))
+        (timings[name] ??= []).push(...values);
+    } else {
+      remove(REPORT_KEY);
+    }
     return null;
   }
   previousCrash = activities;

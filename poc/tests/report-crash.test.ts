@@ -80,6 +80,16 @@ describe('crash detection', () => {
     expect(second.restoreAfterCrash()?.map(a => a.label)).toEqual(['detect', 'load stt whisper-tiny']);
   });
 
+  it('carries the log over a deliberate reload, without reporting a crash', async () => {
+    const first = await pageLoad();
+    first.record('wake.describe', 800);
+    const second = await pageLoad();
+    expect(second.restoreAfterCrash(true)).toBeNull();
+    const report = second.buildReport(null, {});
+    expect(report.timings['wake.describe']).toMatchObject({ count: 1 });
+    expect(report.log.join('\n')).toContain('page reloaded to continue a wake');
+  });
+
   it('accepts the single-activity marker written by older builds', async () => {
     storage.setItem('hearthwake.poc.activity', JSON.stringify({ label: 'wake', at: 'x' }));
     const page = await pageLoad();

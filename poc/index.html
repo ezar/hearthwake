@@ -42,7 +42,7 @@
         </p>
         <label class="check">
           <input id="two-step" type="checkbox" checked />
-          Wake in two steps: the page reloads between vision and the LLM
+          Wake in two steps with SmolVLM: the page reloads between vision and the LLM
         </label>
 
         <div class="model">
@@ -62,7 +62,12 @@
         </div>
 
         <div class="model">
-          <div><strong>Vision</strong><span>SmolVLM 256M · describes the thing</span></div>
+          <div><strong>Vision</strong><span>Describes the thing</span></div>
+          <label class="sr-only" for="vision-choice">Vision engine</label>
+          <select id="vision-choice" disabled>
+            <option value="classifier" selected>MediaPipe classifier + colours (~7 MB)</option>
+            <option value="smolvlm">SmolVLM 256M (richer, ~200 MB)</option>
+          </select>
           <div class="actions">
             <button data-load="vlm" disabled>Load</button>
             <button data-free="vlm" disabled>Free</button>

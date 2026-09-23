@@ -1,9 +1,17 @@
-// Small vision-language model that describes the selected object.
+// Describes the selected thing, with one of two engines:
+// - classifier: MediaPipe image classifier plus pixel colours, a few MB (default; ADR 0016);
+// - smolvlm: SmolVLM 256M through transformers.js, richer text but hundreds of MB.
+import { classifyAndDescribe, loadClassifier, unloadClassifier } from './classifier';
 import type { PreTrainedModel, Processor, RawImage as RawImageType, Tensor } from '@huggingface/transformers';
 import { timed } from './report';
 import { runtime } from './runtime';
 
-const MODEL = 'HuggingFaceTB/SmolVLM-256M-Instruct';
+export type VisionChoice = 'classifier' | 'smolvlm';
+export const VISION_MODELS: Record<VisionChoice, string> = {
+  classifier: 'mediapipe/efficientnet_lite2 + colours',
+  smolvlm: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+};
+const MODEL = VISION_MODELS.smolvlm;
 const PROMPT =
   'Describe this household object concretely: what it is, its colours, materials and condition, ' +
   'and any stickers, marks or anything unusual. Two or three sentences.';
@@ -11,8 +19,25 @@ const PROMPT =
 let processor: Processor | null = null;
 let model: PreTrainedModel | null = null;
 let RawImage: typeof RawImageType | null = null;
+let active: VisionChoice | null = null;
 
-export async function loadVLM(): Promise<void> {
+export interface Description {
+  text: string;
+  // What the thing is, when the engine can tell (the classifier); null otherwise.
+  label: string | null;
+}
+
+export async function loadVLM(choice: VisionChoice): Promise<void> {
+  if (choice === 'classifier') {
+    await timed('load.vision.classifier', loadClassifier);
+    active = choice;
+    return;
+  }
+  await loadSmolVLM();
+  active = choice;
+}
+
+async function loadSmolVLM(): Promise<void> {
   const tf = await import('@huggingface/transformers');
   RawImage = tf.RawImage;
   const dtype =
@@ -30,12 +55,19 @@ export async function loadVLM(): Promise<void> {
 }
 
 export async function unloadVLM(): Promise<void> {
+  unloadClassifier();
+  active = null;
   await model?.dispose();
   model = null;
   processor = null;
 }
 
-export async function describe(canvas: HTMLCanvasElement): Promise<string> {
+export async function describe(canvas: HTMLCanvasElement): Promise<Description> {
+  if (active === 'classifier') return classifyAndDescribe(canvas);
+  return { text: await describeWithSmolVLM(canvas), label: null };
+}
+
+async function describeWithSmolVLM(canvas: HTMLCanvasElement): Promise<string> {
   if (!processor || !model || !RawImage) throw new Error('Load the vision model first');
   const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
   const image = new RawImage(data, canvas.width, canvas.height, 4).rgb();

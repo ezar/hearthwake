@@ -76,6 +76,9 @@ Which combination coexists on the iPhone, and which must be swapped:
 
 - The camera can now be opened at 720p, 480p or 360p (ADR 0015), to check whether the camera's memory matters on the camera page.
 
+- 2026-09-24, iPhone, Safari, two-step wake: after the automatic reload, SmolVLM failed to load ten times in a row with `no available backend found. ERR: [webgpu] RangeError: Out of memory` (100 to 180 ms each). A reload does not give back ONNX Runtime's memory. The camera page's log was lost with the reload (fixed).
+- The default vision engine is now MediaPipe's image classifier plus pixel colours (ADR 0016). Headless Chromium: 7.5 s cold load, 0.2 s per classification on the CPU. Next: wake with the camera on the iPhone.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.
