@@ -72,6 +72,8 @@ Which combination coexists on the iPhone, and which must be swapped:
   - Replaced by a hand-written grammar with no example and one retry (ADR 0013).
 - A run just before this one used the previous build: the page loaded 26 s before the deploy finished. 5 of 5 souls in about 4 s, but it copied the teacup example.
 
+- Next: waking with the camera in two steps, with a page reload between vision and the LLM (ADR 0014). Measure `wake.describe`, `wake.createSoul` and `wake.twoStepTotal` on the iPhone.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.

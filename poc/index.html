@@ -19,6 +19,17 @@
     </header>
 
     <main>
+      <section id="pending-wake" class="panel pending" aria-live="polite" hidden>
+        <img id="pending-img" alt="" />
+        <div>
+          <p id="pending-text"></p>
+          <div class="row">
+            <button id="btn-pending-continue" class="primary" disabled>Continue</button>
+            <button id="btn-pending-cancel">Cancel</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="h-device">
         <h2 id="h-device">Device</h2>
         <pre id="probe-out" class="mono">Tap Start to probe the device.</pre>
@@ -30,8 +41,8 @@
           Load one at a time. If Safari reloads the page, it ran out of memory: note it down.
         </p>
         <label class="check">
-          <input id="phases" type="checkbox" checked />
-          Load in phases: vision only while waking a thing, hearing afterwards
+          <input id="two-step" type="checkbox" checked />
+          Wake in two steps: the page reloads between vision and the LLM
         </label>
 
         <div class="model">
