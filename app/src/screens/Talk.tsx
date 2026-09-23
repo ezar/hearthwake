@@ -2,7 +2,7 @@
 // sentence by sentence as they arrive.
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { ensureLlm, useEngine } from '../engine/engine';
-import { compactMemory, needsCompaction, reply } from '../engine/llm';
+import { compactMemory, needsCompaction, reply, stripStageDirections } from '../engine/llm';
 import { log, record } from '../engine/metrics';
 import {
   canHear,
@@ -14,9 +14,9 @@ import {
   type Listening,
 } from '../engine/voice';
 import { goBack, navigate } from '../router';
-import { loadSettings } from '../store/settings';
+import { loadSettings, saveSettings } from '../store/settings';
 import { getSoul, saveSoul, useSouls, type ChatMessage, type Soul } from '../store/souls';
-import { Back, Keyboard, Mic, Send } from '../ui/icons';
+import { Back, Keyboard, Mic, Muted, Send, Speaker } from '../ui/icons';
 import { Link } from '../ui/Link';
 import { Portrait } from '../ui/Portrait';
 import { useTitle } from '../ui/useTitle';
@@ -40,6 +40,7 @@ export function Talk({ id }: { id: string }) {
   const listener = useRef<Listening | null>(null);
   const releasedAt = useRef(0);
   const end = useRef<HTMLDivElement>(null);
+  const [aloud, setAloud] = useState(true);
   useTitle(soul?.name ?? '');
 
   useEffect(() => {
@@ -52,6 +53,10 @@ export function Talk({ id }: { id: string }) {
 
   useEffect(() => () => stopSpeaking(), []);
 
+  useEffect(() => {
+    void loadSettings().then(s => setAloud(s.speak));
+  }, []);
+
   if (!soul) return <main className="screen" />;
 
   const send = async (text: string, fromVoice: boolean) => {
@@ -61,12 +66,14 @@ export function Talk({ id }: { id: string }) {
     setPending(words);
     setBusy('thinking');
     const start = performance.now();
-    const speakAloud = (await loadSettings()).speak;
+    const speakAloud = aloud;
     const splitter = sentenceSplitter();
     let spoke = false;
     const say = (sentence: string) => {
-      if (!speakAloud) return;
-      speak(sentence, soul, () => {
+      // Stage directions like "(smiles)" are neither shown nor spoken.
+      const clean = stripStageDirections(sentence);
+      if (!speakAloud || !clean) return;
+      speak(clean, soul, () => {
         if (spoke) return;
         spoke = true;
         record(
@@ -82,15 +89,17 @@ export function Talk({ id }: { id: string }) {
       let shown = '';
       const answer = await reply(backend, current, words, delta => {
         shown += delta;
-        setStreaming(shown);
+        setStreaming(stripStageDirections(shown));
         splitter.push(delta).forEach(say);
       });
       splitter.flush().forEach(say);
+      const said = answer || shown.trim();
+      if (!said) throw new Error(`${current.name} had nothing to say. Try again.`);
       const now = Date.now();
       const history: ChatMessage[] = [
         ...current.history,
         { role: 'user', content: words, at: now },
-        { role: 'assistant', content: answer || shown.trim(), at: now },
+        { role: 'assistant', content: said, at: now },
       ];
       let next: Soul = { ...current, history, lastTalkedAt: now };
       await saveSoul(next);
@@ -194,6 +203,19 @@ export function Talk({ id }: { id: string }) {
             <span className="talk__title">{soul.title}</span>
           </span>
         </Link>
+        <button
+          className="icon-btn icon-btn--bare"
+          aria-label="Speak replies aloud"
+          aria-pressed={aloud}
+          onClick={() => {
+            const next = !aloud;
+            setAloud(next);
+            if (!next) stopSpeaking();
+            void saveSettings({ speak: next });
+          }}
+        >
+          {aloud ? <Speaker /> : <Muted />}
+        </button>
       </header>
 
       <section className="talk__log" aria-label="Conversation" aria-live="polite">

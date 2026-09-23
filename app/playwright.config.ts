@@ -18,7 +18,8 @@ export default defineConfig({
   webServer: {
     command: 'npm run build && npx vite preview --port 4173 --strictPort',
     url: 'http://localhost:4173/hearthwake/',
-    reuseExistingServer: !process.env.CI,
+    // Always a fresh build: a leftover preview server would test old files.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
