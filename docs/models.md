@@ -26,6 +26,8 @@ Which combination coexists on the iPhone, and which must be swapped:
 - 2026-09-23, iPhone, Edge: the tab was killed near the end of the LLM load (model to confirm; the default is Qwen2.5-1.5B). The context window was still WebLLM's default of 4096 tokens; it is 2048 since ADR 0005.
 - 2026-09-23, iPhone, Safari, context window 2048: with the detector (loaded in 305 ms) and vision (597 ms) already loaded, both from cache, and the camera open, the tab was killed while loading Llama-3.2-1B-Instruct-q4f16_1-MLC. Crash detection reported it on reopen. 4 Spanish system voices; camera 720x1280. Next: load the LLM alone, then add the other models one by one.
 - The same sessions logged `SyntaxError: The string did not match the expected pattern` two to four times at startup, before any model was loaded. Not reproducible in Chromium; error logging now includes file, line and stack to locate it.
+- 2026-09-23, iPhone, Safari, context window 2048, fresh page: Llama-3.2-1B-Instruct-q4f16_1-MLC loaded alone in 2440 ms (weights cached). Loading whisper-base on top killed the tab. **LLM (1B) and whisper-base do not coexist.** Next: Llama-3.2-1B with whisper-tiny, then Qwen2.5-0.5B with whisper-tiny.
+- The startup `SyntaxError` is an unhandled promise rejection with no stack. It also appeared once with no user action. That message is what Safari's `Response.json()` throws on a non-JSON body, so `Response.json()` is now instrumented to log the URL, status, body start and caller (`poc/src/diagnostics.ts`).
 
 ## Headline metrics
 
