@@ -1,6 +1,6 @@
 # 0014. Wake a thing in two steps, with a page reload between vision and the LLM
 
-Status: accepted, M0. Supersedes the phases mode of ADR 0008.
+Status: accepted, M0. Supersedes the phases mode of ADR 0008. Since ADR 0016 it applies only when SmolVLM is the vision engine; on the iPhone the reload did not free memory.
 
 ## Context
 

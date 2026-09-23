@@ -53,7 +53,7 @@ window.addEventListener('error', e => {
 });
 window.addEventListener('unhandledrejection', e => log(`Unhandled rejection: ${describeError(e.reason)}`));
 
-const crash = restoreAfterCrash();
+const crash = restoreAfterCrash(loadPending() !== null);
 const crashNotice = crash
   ? `The last session closed during "${crash.map(a => a.label).join(' + ')}", probably out of memory. ` +
     'It is in the report.'
@@ -78,6 +78,7 @@ function refreshButtons(): void {
   button('load-llm').disabled ||= !hasWebGpu;
   $<HTMLSelectElement>('llm-model').disabled = !started || busy || !hasWebGpu;
   $<HTMLSelectElement>('stt-model').disabled = !started || busy;
+  $<HTMLSelectElement>('vision-choice').disabled = !started || busy;
   const detectorPicker = $<HTMLSelectElement>('detector-choice');
   detectorPicker.disabled = !started || busy;
   for (const option of detectorPicker.options) {
@@ -88,8 +89,8 @@ function refreshButtons(): void {
   $<HTMLSelectElement>('camera-res').disabled = !started || busy;
   button('btn-detect').disabled = !cameraOpen || !loaded.detector;
   button('btn-center').disabled = !cameraOpen;
-  // In two-step mode waking loads what it needs itself, across page reloads.
-  button('btn-wake').disabled = busy || !cam.getSelected() || (!twoStep() && (!loaded.llm || !loaded.vlm));
+  // Waking loads whatever it needs itself.
+  button('btn-wake').disabled = busy || !cam.getSelected();
   button('btn-pending-continue').disabled = busy || !started;
   button('btn-pending-cancel').disabled = busy;
   button('btn-wake-text').disabled = busy || !loaded.llm || !$<HTMLInputElement>('text-label').value.trim();
@@ -151,8 +152,10 @@ function selectedModel(key: ModelKey): string {
   if (key === 'stt') return $<HTMLSelectElement>('stt-model').value;
   return key === 'detector'
     ? `${DETECTORS[detectorChoice()].model} (${detectorChoice()})`
-    : 'HuggingFaceTB/SmolVLM-256M-Instruct';
+    : vlm.VISION_MODELS[visionChoice()];
 }
+
+const visionChoice = () => $<HTMLSelectElement>('vision-choice').value as vlm.VisionChoice;
 
 const loaders: Record<ModelKey, () => Promise<string>> = {
   detector: async () => {
@@ -160,7 +163,7 @@ const loaders: Record<ModelKey, () => Promise<string>> = {
     return selectedModel('detector');
   },
   vlm: async () => {
-    await vlm.loadVLM();
+    await vlm.loadVLM(visionChoice());
     return selectedModel('vlm');
   },
   llm: async () => {
@@ -340,15 +343,17 @@ button('btn-wake').addEventListener('click', () =>
     const wasDetecting = cam.isDetecting();
     if (wasDetecting) stopDetectionUi();
     const thumbnail = crop.toDataURL('image/jpeg', 0.8);
-    log(`Waking ${sel.label}${twoStep() ? ' (two steps)' : ''}…`);
+    // The classifier is small enough to share a page load with the LLM, so it never needs the reloads.
+    const reloads = twoStep() && visionChoice() === 'smolvlm';
+    log(`Waking ${sel.label}${reloads ? ' (two steps)' : ''}…`);
 
-    if (twoStep()) {
+    if (reloads) {
       let description: string | null = null;
       if (!llmUsedThisPage) {
         for (const key of ['detector', 'stt'] as const) if (loaded[key]) await freeModel(key);
         if (!loaded.vlm) await loadModel('vlm');
-        description = await timed('wake.describe', () => vlm.describe(crop));
-        log(`VLM: ${description}`);
+        description = (await timed('wake.describe', () => vlm.describe(crop))).text;
+        log(`Vision: ${description}`);
       }
       reloadForNextStep({
         label: sel.label,
@@ -362,10 +367,14 @@ button('btn-wake').addEventListener('click', () =>
 
     const start = performance.now();
     try {
+      // The LLM loads first, while memory is cleanest; it is by far the largest allocation.
+      if (!loaded.llm) await loadModel('llm');
       if (!loaded.vlm) await loadModel('vlm');
-      const description = await timed('wake.describe', () => vlm.describe(crop));
-      log(`VLM: ${description}`);
-      await createSoul(sel.label, description, thumbnail);
+      const { text: description, label } = await timed('wake.describe', () => vlm.describe(crop));
+      log(`Vision: ${description}`);
+      // "Use the centre" has no label of its own; the classifier's is better than "object".
+      const soulLabel = sel.label === cam.CENTRE_LABEL && label ? label : sel.label;
+      await createSoul(soulLabel, description, thumbnail);
       record('wake.total', performance.now() - start);
     } finally {
       if (wasDetecting && loaded.detector) startDetectionUi();
@@ -389,8 +398,8 @@ async function continuePendingWake(): Promise<void> {
     if (pendingStep(pending) === 'describe') {
       const canvas = await canvasFromDataUrl(pending.thumbnail);
       if (!loaded.vlm) await loadModel('vlm');
-      const description = await timed('wake.describe', () => vlm.describe(canvas));
-      log(`VLM: ${description}`);
+      const description = (await timed('wake.describe', () => vlm.describe(canvas))).text;
+      log(`Vision: ${description}`);
       reloadForNextStep({ ...pending, description });
       return;
     }

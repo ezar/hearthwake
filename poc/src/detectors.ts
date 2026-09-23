@@ -5,6 +5,7 @@
 // - EfficientDet-Lite0 through MediaPipe Tasks, on its GPU delegate (WebGL) or CPU. On the iPhone the
 //   YOLOS WebGPU path killed Safari on the first frame and its WASM path ran at 0.2 fps (ADR 0010).
 import type { Detection } from './camera';
+import { fetchModel, visionFileset } from './mediapipe';
 
 export type DetectorChoice = 'mediapipe-gpu' | 'mediapipe-cpu' | 'yolos-webgpu' | 'yolos-wasm';
 
@@ -30,8 +31,6 @@ const YOLOS_WIDTH = 320;
 const MEDIAPIPE_THRESHOLD = 0.5;
 const MEDIAPIPE_MODEL =
   'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
-// Same Cache Storage as the other libraries, so "Borrar modelos descargados" clears it too.
-const MEDIAPIPE_CACHE = 'mediapipe-models';
 
 export async function createDetector(choice: DetectorChoice): Promise<DetectorBackend> {
   return choice.startsWith('mediapipe')
@@ -62,36 +61,18 @@ async function createYolos(device: 'webgpu' | 'wasm'): Promise<DetectorBackend> 
   };
 }
 
-async function fetchCached(url: string): Promise<Uint8Array> {
-  const cache = await caches.open(MEDIAPIPE_CACHE);
-  let response = await cache.match(url);
-  if (!response) {
-    const fresh = await fetch(url);
-    if (!fresh.ok) throw new Error(`Could not download the detector (${fresh.status})`);
-    await cache.put(url, fresh.clone());
-    response = fresh;
-  }
-  return new Uint8Array(await response.arrayBuffer());
-}
-
 async function createMediaPipe(delegate: 'GPU' | 'CPU'): Promise<DetectorBackend> {
-  const [{ ObjectDetector }, { default: wasmLoaderPath }, { default: wasmBinaryPath }, model] =
-    await Promise.all([
-      import('@mediapipe/tasks-vision'),
-      // Served from this site, like the other WASM runtimes, instead of Google's CDN.
-      import('@mediapipe/tasks-vision/vision_wasm_internal.js?url'),
-      import('@mediapipe/tasks-vision/vision_wasm_internal.wasm?url'),
-      fetchCached(MEDIAPIPE_MODEL),
-    ]);
-  const detector = await ObjectDetector.createFromOptions(
-    { wasmLoaderPath, wasmBinaryPath },
-    {
-      baseOptions: { modelAssetBuffer: model, delegate },
-      runningMode: 'VIDEO',
-      scoreThreshold: MEDIAPIPE_THRESHOLD,
-      maxResults: 10,
-    },
-  );
+  const [{ ObjectDetector }, fileset, model] = await Promise.all([
+    import('@mediapipe/tasks-vision'),
+    visionFileset(),
+    fetchModel(MEDIAPIPE_MODEL),
+  ]);
+  const detector = await ObjectDetector.createFromOptions(fileset, {
+    baseOptions: { modelAssetBuffer: model, delegate },
+    runningMode: 'VIDEO',
+    scoreThreshold: MEDIAPIPE_THRESHOLD,
+    maxResults: 10,
+  });
   let lastTimestamp = 0;
   return {
     async detect(video) {
