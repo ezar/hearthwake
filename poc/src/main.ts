@@ -1,4 +1,6 @@
 // UI wiring for the Hearthwake M0 feasibility spike: busy state, button enablement and flows.
+// Must stay the first import: it instruments Response.json() before anything else runs.
+import './diagnostics';
 import './styles.css';
 import { clearModelCaches, storageUsageMB } from './cache';
 import * as cam from './camera';
