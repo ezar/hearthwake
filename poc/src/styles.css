@@ -116,7 +116,8 @@ main {
 
 button,
 select,
-input {
+input,
+textarea {
   font: inherit;
   color: var(--paper);
   background: var(--wall);
@@ -130,13 +131,15 @@ button {
 }
 button:disabled,
 select:disabled,
-input:disabled {
+input:disabled,
+textarea:disabled {
   opacity: 0.45;
   cursor: default;
 }
 button:focus-visible,
 select:focus-visible,
 input:focus-visible,
+textarea:focus-visible,
 summary:focus-visible {
   outline: 3px solid var(--lamp);
   outline-offset: 2px;
@@ -171,6 +174,20 @@ input {
   height: 22px;
   flex: none;
   accent-color: var(--lamp);
+}
+.text-wake {
+  margin-top: 12px;
+}
+.text-wake .fields {
+  display: grid;
+  gap: 6px;
+}
+.text-wake label {
+  font-size: 14px;
+  color: var(--muted);
+}
+textarea {
+  resize: vertical;
 }
 .model {
   display: grid;
