@@ -95,7 +95,7 @@ function refreshButtons(): void {
   button('btn-pending-cancel').disabled = busy;
   button('btn-wake-text').disabled = busy || !loaded.llm || !$<HTMLInputElement>('text-label').value.trim();
   const canTalk = !busy && !!soul && !!loaded.llm;
-  button('btn-talk').disabled = !canTalk || !loaded.stt;
+  button('btn-talk').disabled = !canTalk || (!loaded.stt && !systemHearing());
   $<HTMLInputElement>('text-input').disabled = !canTalk;
   button('btn-send').disabled = !canTalk;
   button('btn-forget').disabled = busy || !soul;
@@ -175,6 +175,10 @@ const loaders: Record<ModelKey, () => Promise<string>> = {
   },
   stt: async () => {
     const id = $<HTMLSelectElement>('stt-model').value;
+    if (id === voice.SYSTEM_STT) {
+      if (!voice.hasSystemRecognition()) throw new Error('This browser has no speech recognition');
+      return id;
+    }
     await voice.loadSTT(id);
     return id;
   },
@@ -592,6 +596,12 @@ async function reply(text: string, releasedAt: number | null): Promise<void> {
   }
 }
 
+// System recognition needs no model, so it is used whenever it is chosen and no Whisper model is loaded.
+function systemHearing(): boolean {
+  if (loaded.stt) return loaded.stt === voice.SYSTEM_STT;
+  return $<HTMLSelectElement>('stt-model').value === voice.SYSTEM_STT && voice.hasSystemRecognition();
+}
+
 // Push to talk. `pressed` covers releases that happen while the mic is still starting.
 const talk = button('btn-talk');
 let pressed = false;
@@ -606,7 +616,8 @@ talk.addEventListener('pointerdown', async e => {
   talk.setPointerCapture?.(e.pointerId);
   voice.stopSpeaking();
   try {
-    await voice.startRecording();
+    if (systemHearing()) voice.startListening();
+    else await voice.startRecording();
   } catch (err) {
     pressed = false;
     log(`Mic error: ${(err as Error).message}`);
@@ -625,10 +636,11 @@ async function endTalk(): Promise<void> {
   const releasedAt = performance.now();
   talk.classList.remove('recording');
   talk.textContent = 'Hold to talk';
-  const blob = await voice.stopRecording();
-  if (!blob) return;
+  const system = systemHearing();
+  const blob = system ? null : await voice.stopRecording();
+  if (!system && !blob) return;
   await withBusy('transcribe and reply', async () => {
-    const text = await timed('stt.transcribe', () => voice.transcribe(blob));
+    const text = await timed('stt.transcribe', () => (blob ? voice.transcribe(blob) : voice.stopListening()));
     if (!text) {
       log('No speech detected');
       return;
@@ -670,6 +682,7 @@ if (crash) {
   }
 }
 $<HTMLInputElement>('two-step').addEventListener('change', refreshButtons);
+$<HTMLSelectElement>('stt-model').addEventListener('change', refreshButtons);
 $<HTMLInputElement>('text-label').addEventListener('input', refreshButtons);
 renderSoulList();
 renderPending();

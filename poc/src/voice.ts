@@ -1,4 +1,4 @@
-// Recording, Whisper transcription, system speech synthesis and the sentence splitter.
+// Recording, Whisper or system speech recognition, system speech synthesis and the sentence splitter.
 import { RECORDER_TYPES } from './probe';
 import { log, timed } from './report';
 import { runtime } from './runtime';
@@ -90,6 +90,80 @@ export async function transcribe(blob: Blob): Promise<string> {
   if (audio.length < SAMPLE_RATE * MIN_SECONDS) return '';
   const out = await asr(audio, { language: 'english', task: 'transcribe' });
   return (Array.isArray(out) ? out.map(o => o.text).join(' ') : out.text).trim();
+}
+
+// System speech recognition (the Web Speech API), an alternative to Whisper that loads no model (ADR 0017).
+// Minimal typings: TypeScript's DOM library does not declare it.
+interface RecognitionResult {
+  isFinal: boolean;
+  0: { transcript: string };
+}
+interface Recognition {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<RecognitionResult> }) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+type RecognitionConstructor = new () => Recognition;
+
+export const SYSTEM_STT = 'system';
+
+function recognitionConstructor(): RecognitionConstructor | null {
+  const g = globalThis as {
+    SpeechRecognition?: RecognitionConstructor;
+    webkitSpeechRecognition?: RecognitionConstructor;
+  };
+  return g.SpeechRecognition ?? g.webkitSpeechRecognition ?? null;
+}
+
+export function hasSystemRecognition(): boolean {
+  return recognitionConstructor() !== null;
+}
+
+let recognition: Recognition | null = null;
+let heard: string[] = [];
+let recognitionError: string | null = null;
+let recognitionEnded: Promise<void> = Promise.resolve();
+
+// Starts listening on press. Final results are collected until stopListening.
+export function startListening(): void {
+  const Ctor = recognitionConstructor();
+  if (!Ctor) throw new Error('This browser has no speech recognition');
+  const r = new Ctor();
+  r.lang = 'en-US';
+  r.continuous = true;
+  r.interimResults = false;
+  heard = [];
+  recognitionError = null;
+  r.onresult = e => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const result = e.results[i]!;
+      if (result.isFinal) heard.push(result[0].transcript);
+    }
+  };
+  r.onerror = e => {
+    if (e.error !== 'no-speech' && e.error !== 'aborted') recognitionError = e.error;
+  };
+  recognitionEnded = new Promise(resolve => {
+    r.onend = () => resolve();
+  });
+  recognition = r;
+  r.start();
+}
+
+// Stops on release and resolves with what was heard once the recognizer delivers its last result.
+export async function stopListening(): Promise<string> {
+  const r = recognition;
+  if (!r) return '';
+  recognition = null;
+  r.stop();
+  await recognitionEnded;
+  if (recognitionError) throw new Error(`Speech recognition: ${recognitionError}`);
+  return heard.join(' ').trim();
 }
 
 // Speech.
