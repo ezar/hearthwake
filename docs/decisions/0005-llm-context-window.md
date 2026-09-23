@@ -17,3 +17,7 @@ Load every WebLLM model with `context_window_size: 2048`, both on first creation
 - The KV cache takes roughly half the memory it did at 4096, which matters most for the 1.5B and 3B models.
 - The `vram_required_MB` figures in the model picker come from WebLLM's prebuilt list and still assume the default window, so real usage is somewhat lower than shown.
 - If M1 needs longer conversations in context, the memory summary is the lever, not a bigger window.
+
+## Amendment: sliding windows
+
+WebLLM rejects a configuration where both `context_window_size` and `sliding_window_size` are positive. Gemma 3 1B's config brings a 512-token sliding window, and WebLLM's own model record overrides the context window to 4096, which already means full attention for it. Loading Gemma 3 with our 2048 window failed on the iPhone with `WindowSizeConfigurationError`. The chat options now also set `sliding_window_size: -1`. That matches WebLLM's intent for Gemma 3 and is a no-op for models without a sliding window.
