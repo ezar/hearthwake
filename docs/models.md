@@ -14,12 +14,13 @@ Fill in from the copied reports (`Copiar informe`) after each device session. Ti
 
 | Model | iPhone load ms | Page reload on iPhone? | Desktop load ms | UI freezes? |
 | --- | --- | --- | --- | --- |
-| Detector (yolos-tiny) | | | | |
-| Vision (SmolVLM 256M) | | | | |
-| LLM (model id) | | | | |
-| Hearing (whisper-base / tiny) | | | | |
+| Detector (yolos-tiny) | 305–361 (cache) | WebGPU: killed at first frame. WASM: 0.2 fps | | |
+| Detector (MediaPipe EfficientDet-Lite0, WebGL) | 129–462 (cache), 4392 cold | no; 56 ms/frame, ~15 fps | | |
+| Vision (SmolVLM 256M) | 597–1000 (cache) | alone: no. After a reload: out of memory | | |
+| LLM (Llama-3.2-1B-Instruct-q4f16_1-MLC) | 1800–4800 (cache) | often on the first load; always with any other model or the camera | | |
+| Hearing (whisper-base / tiny) | | whisper-base with the LLM: killed | | |
 
-Which combination coexists on the iPhone, and which must be swapped:
+Which combination coexists on the iPhone, and which must be swapped: detector and vision coexist with the camera. The LLM coexists with nothing: it only generates in a tab that loaded nothing else, and swapping by reload does not free memory (ADR 0017).
 
 ### Log
 
@@ -78,6 +79,11 @@ Which combination coexists on the iPhone, and which must be swapped:
 
 - 2026-09-24, iPhone, Safari, two-step wake: after the automatic reload, SmolVLM failed to load ten times in a row with `no available backend found. ERR: [webgpu] RangeError: Out of memory` (100 to 180 ms each). A reload does not give back ONNX Runtime's memory. The camera page's log was lost with the reload (fixed).
 - The default vision engine is now MediaPipe's image classifier plus pixel colours (ADR 0016). Headless Chromium: 7.5 s cold load, 0.2 s per classification on the CPU. Next: wake with the camera on the iPhone.
+- 2026-09-24, iPhone, Safari, build with ADR 0016, last runs of M0:
+  - **Two-step wake with SmolVLM, fresh tab:** SmolVLM loaded in 800 ms and described in 3112 ms. The description was concrete, but it looped: "The white door has a metallic handle on the right side. The door has a white frame. The door has a white doorknob…", repeated until the token cap.
+  - After the automatic reload, loading Llama-3.2-1B killed the tab. On the next page it loaded in 2739 ms, and the tab died about 11 s into soul generation.
+  - **One-page wake** with the camera open at 720p: the tab died while loading the LLM, before any vision model ran.
+  - Conclusion: on this iPhone, Llama-3.2-1B generates only in a page that has loaded nothing else since the tab was opened. Neither a reload nor a few MB of vision beside it is enough. M0 stops here (ADR 0017).
 
 ## Built-in AI on iOS
 
@@ -89,12 +95,12 @@ Which combination coexists on the iPhone, and which must be swapped:
 | --- | --- | --- | --- |
 | `talk.firstAudioFromRelease` | < 4000 iPhone, < 2500 desktop | | |
 | `wake.total` | < 12000 iPhone | | |
-| Detection fps | >= 5 iPhone | | |
+| Detection fps | >= 5 iPhone | ~15 (MediaPipe, WebGL) | |
 | `stt.transcribe` | | | |
 | `llm.firstToken` | | | |
 | `llm.fullReply` | | | |
-| `wake.describe` | | | |
-| `wake.createSoul` | | | |
+| `wake.describe` | | 3112 (SmolVLM) | |
+| `wake.createSoul` | | 3700–13400 (text-only wake, Llama 1B) | |
 | `memory.compact` | | | |
 
 ## Qualitative answers
