@@ -18,7 +18,7 @@ export interface Activity {
 const timings: Record<string, number[]> = {};
 const events: string[] = [];
 let logEl: HTMLElement | null = null;
-let previousCrash: Activity | null = null;
+let previousCrash: Activity[] | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 // localStorage can be missing (tests) or full; losing the mirror must never break the harness.
@@ -53,30 +53,45 @@ function persist(): void {
   writeJson(REPORT_KEY, { events: events.slice(-VISIBLE_LINES), timings });
 }
 
-// Marks the start of a step that may exhaust memory. Written synchronously, before the step runs.
-export function beginActivity(label: string, model?: string): void {
-  writeJson(ACTIVITY_KEY, { label, model, at: new Date().toISOString() } satisfies Activity);
+// Activities are steps that may exhaust memory. Several can run at once (detection keeps running
+// while a model loads), so the marker holds all of them. It is written synchronously before each step.
+const active = new Map<number, Activity>();
+let nextActivity = 1;
+
+function writeActivities(): void {
+  if (active.size) writeJson(ACTIVITY_KEY, [...active.values()]);
+  else remove(ACTIVITY_KEY);
 }
 
-export function endActivity(): void {
-  remove(ACTIVITY_KEY);
+export function beginActivity(label: string, model?: string): number {
+  const id = nextActivity++;
+  active.set(id, { label, model, at: new Date().toISOString() });
+  writeActivities();
+  return id;
+}
+
+export function endActivity(id: number): void {
+  active.delete(id);
+  writeActivities();
 }
 
 // Call once at startup. If the last session died mid-activity, its log and timings are restored
-// and the activity is returned; otherwise the saved mirror is discarded and a fresh session starts.
-export function restoreAfterCrash(): Activity | null {
-  const activity = readJson<Activity>(ACTIVITY_KEY);
+// and the activities are returned; otherwise the saved mirror is discarded and a fresh session starts.
+export function restoreAfterCrash(): Activity[] | null {
+  const stored = readJson<Activity | Activity[]>(ACTIVITY_KEY);
+  const activities = stored ? (Array.isArray(stored) ? stored : [stored]) : [];
   const saved = readJson<{ events?: string[]; timings?: Record<string, number[]> }>(REPORT_KEY);
   remove(ACTIVITY_KEY);
-  if (!activity) {
+  if (!activities.length) {
     remove(REPORT_KEY);
     return null;
   }
-  previousCrash = activity;
+  previousCrash = activities;
   events.push(...(saved?.events ?? []), '--- previous session ended here ---');
   for (const [name, values] of Object.entries(saved?.timings ?? {})) (timings[name] ??= []).push(...values);
-  log(`Previous session closed during "${activity.label}" (started ${activity.at}), probably out of memory`);
-  return activity;
+  const what = activities.map(a => `"${a.label}" (started ${a.at})`).join(' and ');
+  log(`Previous session closed during ${what}, probably out of memory`);
+  return activities;
 }
 
 export function initLog(el: HTMLElement): void {

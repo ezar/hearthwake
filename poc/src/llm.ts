@@ -17,15 +17,18 @@ export const HISTORY_WINDOW = 8;
 export const COMPACT_ABOVE = 16;
 export const KEEP_AFTER_COMPACT = 6;
 
-// Gemma's template rejects system prompts and Qwen3 emits thinking tokens, so both are left out.
+// Qwen3 emits thinking tokens, so it is left out. Gemma 3 1B is in: its template rejects system
+// prompts, so adaptMessages folds the system prompt into the first user turn (ADR 0009).
 const WANTED = [
   /^Qwen2\.5-0\.5B-Instruct-/,
   /^Qwen2\.5-1\.5B-Instruct-/,
   /^Qwen2\.5-3B-Instruct-/,
   /^Llama-3\.2-1B-Instruct-/,
   /^Llama-3\.2-3B-Instruct-/,
+  /^gemma3-1b-it-/,
 ];
-export const DEFAULT_MODEL = /^Qwen2\.5-1\.5B-Instruct-/;
+// The only build measured to load on the iPhone so far (docs/models.md).
+export const DEFAULT_MODEL = /^Llama-3\.2-1B-Instruct-/;
 
 // The KV cache is allocated for the whole window up front. Prompts here (system prompt, eight history
 // messages, a 160-token reply) fit well inside 2048, and halving WebLLM's usual 4096 saves memory on iOS.
@@ -75,6 +78,23 @@ export async function unloadLLM(): Promise<void> {
   await engine?.unload();
   loadedId = null;
 }
+
+export interface Message {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+// Gemma's chat template has no system role: its instructions go at the top of the first user turn.
+export function adaptMessages(modelId: string, messages: Message[]): Message[] {
+  const [system, ...rest] = messages;
+  if (!/^gemma/i.test(modelId) || system?.role !== 'system') return messages;
+  const [first, ...others] = rest;
+  if (first?.role !== 'user') return [{ role: 'user', content: system.content }, ...rest];
+  return [{ role: 'user', content: `${system.content}\n\n${first.content}` }, ...others];
+}
+
+const forModel = (messages: Message[]) =>
+  adaptMessages(loadedId ?? '', messages) as ChatCompletionRequestNonStreaming['messages'];
 
 function requireEngine(): MLCEngine {
   if (!engine || !loadedId) throw new Error('Carga el LLM primero');
@@ -179,7 +199,7 @@ export async function createSoul(label: string, description: string): Promise<So
     temperature: 0.9,
     max_tokens: 400,
     response_format: { type: 'json_object', schema: JSON.stringify(SOUL_SCHEMA) },
-    messages: [
+    messages: forModel([
       {
         role: 'system',
         content:
@@ -195,7 +215,7 @@ export async function createSoul(label: string, description: string): Promise<So
           'cómo habla; una muletilla corta; un secreto inofensivo; pitch entre 0.6 y 1.6 y rate entre 0.8 y 1.2 ' +
           'según su carácter; greeting es su primera frase al despertar y debe mencionar algo concreto de su aspecto.',
       },
-    ],
+    ]),
   });
   return normalizeSoul(parseJson(reply.choices[0]?.message.content ?? ''));
 }
@@ -233,11 +253,11 @@ export async function chat(soul: Soul, userText: string, onDelta: (delta: string
     stream: true,
     temperature: 0.8,
     max_tokens: 160,
-    messages: [
+    messages: forModel([
       { role: 'system', content: systemPrompt(soul) },
       ...trimHistory(soul.history),
       { role: 'user', content: userText },
-    ],
+    ]),
   });
   for await (const chunk of stream) {
     const delta = chunk.choices[0]?.delta?.content ?? '';
@@ -264,7 +284,7 @@ export async function compactMemory(soul: Soul, llm: CompletionEngine = requireE
   const reply = await llm.chat.completions.create({
     temperature: 0.3,
     max_tokens: 220,
-    messages: [
+    messages: forModel([
       {
         role: 'system',
         content:
@@ -277,7 +297,7 @@ export async function compactMemory(soul: Soul, llm: CompletionEngine = requireE
           `Recuerdos previos de ${soul.name}: ${soul.memory || 'ninguno'}\n\nConversación nueva:\n${transcript}\n\n` +
           `Escribe el resumen actualizado de lo que ${soul.name} debe recordar, uniendo los recuerdos previos y los nuevos.`,
       },
-    ],
+    ]),
   });
   const memory = reply.choices[0]?.message.content?.trim() || soul.memory;
   return { ...soul, memory, history: soul.history.slice(-KEEP_AFTER_COMPACT) };

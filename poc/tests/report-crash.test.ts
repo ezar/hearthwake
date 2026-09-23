@@ -36,8 +36,7 @@ describe('crash detection', () => {
   it('starts fresh when the last session ended cleanly', async () => {
     const first = await pageLoad();
     first.record('load.detector', 1200);
-    first.beginActivity('load detector');
-    first.endActivity();
+    first.endActivity(first.beginActivity('load detector'));
 
     const second = await pageLoad();
     expect(second.restoreAfterCrash()).toBeNull();
@@ -55,7 +54,7 @@ describe('crash detection', () => {
 
     const second = await pageLoad();
     const crash = second.restoreAfterCrash();
-    expect(crash).toMatchObject({ label: 'load llm Qwen2.5-1.5B-Instruct-q4f16_1-MLC', model: 'llm' });
+    expect(crash).toMatchObject([{ label: 'load llm Qwen2.5-1.5B-Instruct-q4f16_1-MLC', model: 'llm' }]);
 
     const report = second.buildReport(null, {});
     expect(report.previousCrash).toEqual(crash);
@@ -66,6 +65,25 @@ describe('crash detection', () => {
     // Reported once: a later clean reload starts fresh again.
     const third = await pageLoad();
     expect(third.restoreAfterCrash()).toBeNull();
+  });
+
+  it('tracks overlapping activities and reports all that were running', async () => {
+    const first = await pageLoad();
+    const detect = first.beginActivity('detect');
+    const load = first.beginActivity('load llm Llama', 'llm');
+    first.endActivity(load);
+    first.beginActivity('load stt whisper-tiny', 'stt');
+    // Only the finished load is gone; detection and the second load were running when the tab died.
+    first.endActivity(detect + 1000); // Unknown ids are ignored.
+
+    const second = await pageLoad();
+    expect(second.restoreAfterCrash()?.map(a => a.label)).toEqual(['detect', 'load stt whisper-tiny']);
+  });
+
+  it('accepts the single-activity marker written by older builds', async () => {
+    storage.setItem('hearthwake.poc.activity', JSON.stringify({ label: 'wake', at: 'x' }));
+    const page = await pageLoad();
+    expect(page.restoreAfterCrash()).toEqual([{ label: 'wake', at: 'x' }]);
   });
 
   it('keeps working when storage throws', async () => {
