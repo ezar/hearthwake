@@ -8,7 +8,7 @@ Build only what `docs/m0-spike.md` describes. Read it before changing anything i
 
 - `poc/` is the spike: Vite + TypeScript (strict), vanilla DOM. `poc/reference/` is the original plain-JS prototype, kept as a guide only; it is not built, linted or tested.
 - `docs/models.md` collects measured results per device. `docs/decisions/` holds short ADRs; record every decision there.
-- Code, comments, identifiers, commits and docs in English. UI strings in Spanish.
+- Code, comments, identifiers, commits and docs in English. UI strings and souls in English too (ADR 0012).
 - No React, PWA, IndexedDB, WebXR or game logic until M1.
 
 ## Commands (run in `poc/`)

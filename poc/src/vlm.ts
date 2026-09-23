@@ -36,7 +36,7 @@ export async function unloadVLM(): Promise<void> {
 }
 
 export async function describe(canvas: HTMLCanvasElement): Promise<string> {
-  if (!processor || !model || !RawImage) throw new Error('Carga el modelo de visión primero');
+  if (!processor || !model || !RawImage) throw new Error('Load the vision model first');
   const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
   const image = new RawImage(data, canvas.width, canvas.height, 4).rgb();
   const messages = [{ role: 'user', content: [{ type: 'image' }, { type: 'text', text: PROMPT }] }];

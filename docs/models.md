@@ -56,6 +56,8 @@ Which combination coexists on the iPhone, and which must be swapped:
   - `wake.createSoul` took 12.2 s and failed with `finish=length, 399 tokens`: the model looped inside the `traits` array, writing field-like strings.
   - Fixed by bounding the schema and adding a worked example (ADR 0011).
 
+- Decision after these runs: keep Llama 3.2 1B in the browser and switch souls and UI to English (ADR 0012). Next run: text-only wake and a short chat in English.
+
 ## Built-in AI on iOS
 
 - The probe records `builtIn.languageModel` (a Prompt API `LanguageModel` global) and `builtIn.speechRecognition` (`SpeechRecognition` or `webkitSpeechRecognition`). Apple's on-device models (Foundation Models, on-device speech) are native frameworks; as far as we know Safari does not expose them to web pages. The probe checks this on each device rather than assuming it.

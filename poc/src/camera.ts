@@ -21,7 +21,7 @@ export interface DetectionStats {
   count: number;
 }
 
-export const CENTRE_LABEL = 'objeto';
+export const CENTRE_LABEL = 'object';
 const TRACK_DISTANCE = 0.2;
 const CROP_PADDING = 0.06;
 const LAMP = '#f5b942';
@@ -118,8 +118,8 @@ export async function unloadDetector(): Promise<void> {
 export const isDetecting = () => running;
 
 export function startDetection(onStats: (s: DetectionStats | null) => void): void {
-  if (!detector) throw new Error('Carga el detector primero');
-  if (!isCameraOpen()) throw new Error('Abre la cámara primero');
+  if (!detector) throw new Error('Load the detector first');
+  if (!isCameraOpen()) throw new Error('Open the camera first');
   running = true;
   void loop(onStats);
 }

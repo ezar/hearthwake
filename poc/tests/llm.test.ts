@@ -35,9 +35,9 @@ describe('parseJson', () => {
   });
 
   it('fails with a clear error when there is no usable object', () => {
-    expect(() => parseJson('no json here')).toThrow('El modelo no devolvió JSON válido');
-    expect(() => parseJson('{"name": "Lola"')).toThrow('El modelo no devolvió JSON válido');
-    expect(() => parseJson('{name: Lola}')).toThrow('El modelo no devolvió JSON válido');
+    expect(() => parseJson('no json here')).toThrow('The model did not return valid JSON');
+    expect(() => parseJson('{"name": "Lola"')).toThrow('The model did not return valid JSON');
+    expect(() => parseJson('{name: Lola}')).toThrow('The model did not return valid JSON');
   });
 });
 
