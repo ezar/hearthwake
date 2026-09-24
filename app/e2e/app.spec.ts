@@ -198,3 +198,30 @@ test('a Spanish browser starts in Spanish', async ({ browser }) => {
   await expect(page.getByRole('heading', { name: 'Las cosas de tu casa despiertan.' })).toBeVisible();
   await context.close();
 });
+
+test('the lab: a benchmark, a private diary and a label reader', async ({ page }) => {
+  await onboard(page);
+  await page.getByRole('link', { name: /Lab: more experiments/ }).click();
+
+  await page.getByRole('link', { name: /How fast is this device/ }).click();
+  await page.getByRole('button', { name: 'Start the benchmark' }).click();
+  await expect(page.locator('.bench__big')).toContainText('32.0', { timeout: 15_000 });
+  await expect(page.getByText('Writing speed')).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+
+  await page.getByRole('link', { name: /Private diary/ }).click();
+  await page.getByLabel('Today').fill('Walked the dog in the rain.');
+  await page.getByRole('button', { name: 'Save entry' }).click();
+  await expect(page.getByText('Walked the dog in the rain.')).toBeVisible();
+  await page.getByRole('button', { name: 'Reflect on my week' }).click();
+  await expect(page.getByText('What made today feel lighter?')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Walked the dog in the rain.')).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+
+  await page.getByRole('link', { name: /Label reader/ }).click();
+  await page.getByRole('button', { name: 'Read the text' }).click();
+  await expect(page.getByLabel('The text it read (you can fix it)')).toHaveValue(/hazelnuts/);
+  await page.getByRole('button', { name: 'Is it vegan?' }).click();
+  await expect(page.getByText('It contains milk, hazelnuts and soy, so it is not vegan.')).toBeVisible();
+});

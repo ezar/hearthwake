@@ -254,4 +254,64 @@ export const ES: Record<string, string> = {
   'Curious what works here? The test harness checks each part on its own.':
     '¿Quieres ver qué funciona aquí? El banco de pruebas comprueba cada parte por separado.',
   'Open the test harness': 'Abrir el banco de pruebas',
+
+  // Lab.
+  'Lab: more experiments with on-device AI': 'Laboratorio: más experimentos con IA en el dispositivo',
+  Lab: 'Laboratorio',
+  'More experiments with the same AI, running on this device.':
+    'Más experimentos con la misma IA, corriendo en este dispositivo.',
+  'How fast is this device?': '¿Cómo de rápido es este dispositivo?',
+  'A benchmark of the model and vision on this device, to share and compare.':
+    'Un benchmark del modelo y la visión en este dispositivo, para compartir y comparar.',
+  'Private diary': 'Diario privado',
+  'Write or dictate; the model reflects on your week. What you write stays on this device.':
+    'Escribe o dicta; el modelo reflexiona sobre tu semana. Lo que escribes se queda en este dispositivo.',
+  'Label reader': 'Lector de etiquetas',
+  'Photograph a label or a menu and ask about it: ingredients, allergens, a translation.':
+    'Fotografía una etiqueta o una carta y pregunta: ingredientes, alérgenos, una traducción.',
+  'The benchmark stopped': 'El benchmark se ha parado',
+  '{device} runs {model} in the browser at {decode} tokens a second. https://{url}/':
+    '{device} ejecuta {model} en el navegador a {decode} tokens por segundo. https://{url}/',
+  'Copied. Paste it wherever you like.': 'Copiado. Pégalo donde quieras.',
+  Device: 'Dispositivo',
+  'Writing speed': 'Velocidad al escribir',
+  '{n} tokens/s': '{n} tokens/s',
+  'Reading speed': 'Velocidad al leer',
+  'First word': 'Primera palabra',
+  '{n} ms': '{n} ms',
+  'Model ready in': 'Modelo listo en',
+  'Naming a thing': 'Nombrar una cosa',
+  'Recognising a thing': 'Reconocer una cosa',
+  'Runs the language model on a short story and times the vision models. It takes under a minute.':
+    'Hace que el modelo escriba un cuento corto y cronometra los modelos de visión. Tarda menos de un minuto.',
+  'tokens/s': 'tokens/s',
+  'Measuring…': 'Midiendo…',
+  'Run again': 'Repetir',
+  'Start the benchmark': 'Empezar el benchmark',
+  'Share the result': 'Compartir el resultado',
+  'Entries stay on this device, and so does the model that reads them.':
+    'Las entradas se quedan en este dispositivo, y el modelo que las lee también.',
+  Today: 'Hoy',
+  'How was today?': '¿Qué tal ha ido hoy?',
+  'Stop dictating': 'Parar el dictado',
+  Dictate: 'Dictar',
+  'Save entry': 'Guardar entrada',
+  'Reading your diary…': 'Leyendo tu diario…',
+  'Reflect on my week': 'Reflexiona sobre mi semana',
+  Entries: 'Entradas',
+  'No text found. Get closer, with good light, and try again.':
+    'No he encontrado texto. Acércate, con buena luz, y vuelve a probar.',
+  'The text could not be read': 'No se ha podido leer el texto',
+  'The photo and its text stay on this device.': 'La foto y su texto se quedan en este dispositivo.',
+  'Read the text': 'Leer el texto',
+  'Reading… {n}%': 'Leyendo… {n}%',
+  'The text it read (you can fix it)': 'El texto que ha leído (puedes corregirlo)',
+  'Your question': 'Tu pregunta',
+  'Ask about it': 'Pregunta algo',
+  Ask: 'Preguntar',
+  'Read something else': 'Leer otra cosa',
+  'What is this, in short?': '¿Qué es, en resumen?',
+  'Which allergens does it mention?': '¿Qué alérgenos menciona?',
+  'Translate it for me.': 'Tradúcemelo.',
+  'Is it vegan?': '¿Es vegano?',
 };

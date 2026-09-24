@@ -9,6 +9,10 @@ import { goBack, navigate, useRoute } from './router';
 import { Describe } from './screens/Describe';
 import { Home } from './screens/Home';
 import { Hunt } from './screens/Hunt';
+import { Bench } from './screens/Bench';
+import { Diary } from './screens/Diary';
+import { Lab } from './screens/Lab';
+import { Reader } from './screens/Reader';
 import { Intro } from './screens/Intro';
 import { Settings } from './screens/Settings';
 import { SoulPage } from './screens/SoulPage';
@@ -99,6 +103,14 @@ export function App() {
       return <Together />;
     case 'hunt':
       return <Hunt />;
+    case 'lab':
+      return <Lab />;
+    case 'bench':
+      return <Bench />;
+    case 'diary':
+      return <Diary />;
+    case 'reader':
+      return <Reader />;
     case 'about':
       return <Intro doneLabel={t('Done')} onDone={() => goBack({ name: 'home' })} />;
     default:

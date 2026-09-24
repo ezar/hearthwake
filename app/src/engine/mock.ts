@@ -61,9 +61,17 @@ export function mockLlm(): LlmBackend {
         };
       return { text: 'The player talked about their day.', finishReason: 'stop', tokens: 12 };
     },
+    stats: async () => 'prefill: 180.0 tok/s, decode: 32.0 tok/s',
     async *stream({ messages }) {
-      const back = /The player is back/.test(messages.at(-1)?.content ?? '');
-      const text = back ? 'Oh, you are back! I kept your seat warm.' : REPLIES[turn++ % REPLIES.length]!;
+      const last = messages.at(-1)?.content ?? '';
+      const back = /The player is back/.test(last);
+      const text = back
+        ? 'Oh, you are back! I kept your seat warm.'
+        : /^Text:/.test(last)
+          ? 'It contains milk, hazelnuts and soy, so it is not vegan. Check the package if you have allergies.'
+          : /diary entries/.test(last)
+            ? 'You have been busy and still found time for a walk. What made today feel lighter?'
+            : REPLIES[turn++ % REPLIES.length]!;
       for (const word of text.split(/(?<= )/)) {
         await wait(40);
         yield word;

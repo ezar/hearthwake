@@ -77,7 +77,7 @@ export function Wake() {
       clearInterval(timer);
       closeCamera(stream, el);
     };
-  }, []);
+  }, [t]);
 
   const wakeIt = () => {
     unlockSpeech();

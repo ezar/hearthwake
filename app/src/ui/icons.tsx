@@ -122,6 +122,23 @@ export const Search = (p: P) => (
     <path d="M20 20l-4.5-4.5" />
   </Icon>
 );
+export const Gauge = (p: P) => (
+  <Icon {...p} stroke={1.8}>
+    <path d="M4 18a8 8 0 1 1 16 0" />
+    <path d="M12 18l4-6" />
+  </Icon>
+);
+export const Notebook = (p: P) => (
+  <Icon {...p} stroke={1.8}>
+    <rect x="5" y="3" width="14" height="18" rx="2" />
+    <path d="M9 8h6M9 12h6M9 16h3" />
+  </Icon>
+);
+export const Scan = (p: P) => (
+  <Icon {...p} stroke={1.8}>
+    <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 10h8M8 14h5" />
+  </Icon>
+);
 export const Muted = (p: P) => (
   <Icon {...p} stroke={1.8}>
     <path d="M4 9v6h4l5 4V5L8 9z" />

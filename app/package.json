@@ -20,7 +20,8 @@
     "@mediapipe/tasks-vision": "^1.0.1",
     "@mlc-ai/web-llm": "~0.2.85",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

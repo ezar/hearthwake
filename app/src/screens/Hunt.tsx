@@ -103,7 +103,7 @@ export function Hunt() {
         phase.target,
       );
     },
-    [phase],
+    [phase, t],
   );
 
   const header = (
