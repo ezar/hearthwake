@@ -2,7 +2,14 @@
 // cleanest (ADR 0016), with a status the UI can watch.
 import { useSyncExternalStore } from 'react';
 import { probeDevice, type DeviceInfo } from './device';
-import { isModelCached, webLlmBackend, type LlmBackend } from './llm';
+import {
+  DEFAULT_MODEL,
+  isModelCached,
+  modelId,
+  webLlmBackend,
+  type LlmBackend,
+  type ModelChoice,
+} from './llm';
 import { log, timed, withActivity } from './metrics';
 import { mockLlm, mockRequested, mockVision } from './mock';
 import { mediaPipeVision, type VisionBackend } from './vision';
@@ -16,10 +23,15 @@ export type LlmStatus =
 export interface EngineState {
   device: DeviceInfo | null;
   mock: boolean;
+  model: ModelChoice;
   llm: LlmStatus;
 }
 
-let state: EngineState = { device: null, mock: false, llm: { state: 'idle' } };
+let state: EngineState = { device: null, mock: false, model: DEFAULT_MODEL, llm: { state: 'idle' } };
+
+// The chosen model; takes effect on the next load (a reload of the app).
+export const setModel = (model: ModelChoice) => set({ model });
+const currentModelId = () => modelId(state.model, state.device?.shaderF16 ?? false);
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<EngineState>): void {
@@ -52,7 +64,7 @@ export async function initEngine(): Promise<DeviceInfo> {
 // Loads the LLM once; later calls share the same promise. A failed load can be retried.
 export function ensureLlm(): Promise<LlmBackend> {
   llmLoading ??= (async () => {
-    const backend = state.mock ? mockLlm() : webLlmBackend(state.device?.shaderF16 ?? false);
+    const backend = state.mock ? mockLlm() : webLlmBackend(currentModelId());
     set({ llm: { state: 'loading', progress: 0, text: 'Starting' } });
     try {
       await withActivity('load the model', () =>
@@ -95,5 +107,5 @@ export const loadedVision = () => vision;
 
 // True when the LLM can load without a download (the mock engine never downloads).
 export async function llmIsCached(): Promise<boolean> {
-  return state.mock || isModelCached(state.device?.shaderF16 ?? false);
+  return state.mock || isModelCached(currentModelId());
 }

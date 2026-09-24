@@ -18,17 +18,19 @@ import { goBack, navigate } from '../router';
 import { Close, Flame } from '../ui/icons';
 import { Link } from '../ui/Link';
 import { useTitle } from '../ui/useTitle';
+import { useT } from '../i18n';
 
 const GUESS_EVERY_MS = 900;
 const GUESS_MIN_SCORE = 0.2;
 
 export function Wake() {
+  const t = useT();
   const video = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guess, setGuess] = useState<string | null>(null);
-  useTitle('Wake something');
+  useTitle(t('Wake something'));
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -47,8 +49,10 @@ export function Wake() {
         log(`Camera error: ${name} ${(e as Error).message}`);
         setError(
           name === 'NotAllowedError'
-            ? 'Hearthwake is not allowed to use the camera. Allow it in your browser settings, or describe the thing instead.'
-            : 'The camera could not start. Close other apps that use it, or describe the thing instead.',
+            ? t(
+                'Hearthwake is not allowed to use the camera. Allow it in your browser settings, or describe the thing instead.',
+              )
+            : t('The camera could not start. Close other apps that use it, or describe the thing instead.'),
         );
         return;
       }
@@ -87,7 +91,7 @@ export function Wake() {
 
   return (
     <main className="screen screen--flush wake">
-      <video ref={video} className="wake__video" playsInline muted aria-label="Camera view" />
+      <video ref={video} className="wake__video" playsInline muted aria-label={t('Camera view')} />
       <div
         ref={frameRef}
         className="wake__frame"
@@ -99,17 +103,21 @@ export function Wake() {
         </svg>
         {guess && (
           <span className="wake__guess" aria-live="polite">
-            {/^[aeiou]/i.test(guess) ? 'An' : 'A'} {guess}?
+            {t('{thing}?', { thing: `${/^[aeiou]/i.test(guess) ? 'An' : 'A'} ${guess}`, label: guess })}
           </span>
         )}
       </div>
 
       <header className="bar wake__top">
-        <button className="icon-btn wake__close" aria-label="Close" onClick={() => goBack({ name: 'home' })}>
+        <button
+          className="icon-btn wake__close"
+          aria-label={t('Close')}
+          onClick={() => goBack({ name: 'home' })}
+        >
           <Close size={20} />
         </button>
         <span className="pill">
-          <span className="pill__dot" style={{ background: 'var(--sage)' }} /> All on this device
+          <span className="pill__dot" style={{ background: 'var(--sage)' }} /> {t('All on this device')}
         </span>
       </header>
 
@@ -120,17 +128,17 @@ export function Wake() {
               {error}
             </p>
             <Link to={{ name: 'describe' }} className="btn btn--primary btn--block">
-              Describe it instead
+              {t('Describe it instead')}
             </Link>
           </>
         ) : (
           <>
-            <p className="display wake__hint">Frame one thing and hold still</p>
-            <button className="wake__shutter" aria-label="Wake it" onClick={wakeIt} disabled={!ready}>
+            <p className="display wake__hint">{t('Frame one thing and hold still')}</p>
+            <button className="wake__shutter" aria-label={t('Wake it')} onClick={wakeIt} disabled={!ready}>
               <Flame size={34} />
             </button>
             <span className="lede" style={{ fontSize: 14 }}>
-              {ready ? 'Tap to wake it' : 'Opening the camera…'}
+              {ready ? t('Tap to wake it') : t('Opening the camera…')}
             </span>
           </>
         )}

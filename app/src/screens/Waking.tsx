@@ -21,6 +21,7 @@ import { Check, Phone } from '../ui/icons';
 import { Portrait } from '../ui/Portrait';
 import { useTitle } from '../ui/useTitle';
 import { useWakeLock } from '../ui/useWakeLock';
+import { useT } from '../i18n';
 
 const STEPS: { step: WakeStep; title: string; detail: string }[] = [
   { step: 'look', title: 'Taking a good look', detail: 'What it is and what colour.' },
@@ -34,13 +35,14 @@ type Phase =
   | { kind: 'error'; message: string; seen: Seen | null };
 
 export function Waking() {
+  const t = useT();
   // Taken once: the capture belongs to this screen, and a reload lands back home.
   const [what] = useState<WakeInput | null>(() => takePendingWake());
   const [progress, setProgress] = useState<WakeProgress>({ step: 'look' });
   const [phase, setPhase] = useState<Phase>({ kind: 'working' });
   // Each run: which seen thing to continue from (after "someone new" or a retry), or null to start over.
   const [run, setRun] = useState<{ n: number; from: Seen | null }>({ n: 0, from: null });
-  useTitle('Waking up');
+  useTitle(t('Waking up'));
   useWakeLock(phase.kind === 'working');
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export function Waking() {
       if ((await loadSettings()).speak) speak(soul.greeting, soul);
       if (!cancelled) navigate({ name: 'talk', id: soul.id }, { replace: true });
     })().catch((e: Error) => {
-      if (!cancelled) setPhase({ kind: 'error', message: e.message || 'Something went wrong', seen });
+      if (!cancelled) setPhase({ kind: 'error', message: e.message || t('Something went wrong'), seen });
     });
     return () => {
       cancelled = true;
@@ -85,10 +87,11 @@ export function Waking() {
           <Portrait soul={known} size={120} ring={3} />
         </div>
         <section className="stack" style={{ alignItems: 'center', gap: 8, textAlign: 'center' }}>
-          <h1>Is this {known.name}?</h1>
+          <h1>{t('Is this {name}?', { name: known.name })}</h1>
           <p className="lede">
-            It looks a lot like {known.title ? `${known.name}, ${known.title}` : known.name}, who woke up here
-            before.
+            {t('It looks a lot like {who}, who woke up here before.', {
+              who: known.title ? `${known.name}, ${known.title}` : known.name,
+            })}
           </p>
         </section>
         <div className="spacer" />
@@ -100,7 +103,7 @@ export function Waking() {
               navigate({ name: 'talk', id: known.id }, { replace: true });
             }}
           >
-            Yes, it's {known.name}
+            {t("Yes, it's {name}", { name: known.name })}
           </button>
           <button
             className="btn btn--quiet"
@@ -109,7 +112,7 @@ export function Waking() {
               setRun(r => ({ n: r.n + 1, from: phase.seen }));
             }}
           >
-            No, it's someone new
+            {t("No, it's someone new")}
           </button>
         </div>
       </main>
@@ -132,8 +135,8 @@ export function Waking() {
       </div>
 
       <section className="stack" style={{ alignItems: 'center', gap: 8, textAlign: 'center' }}>
-        <h1>{error ? 'It went back to sleep' : 'Something stirs…'}</h1>
-        <p className="lede">{error ?? 'It takes about 20 seconds.'}</p>
+        <h1>{error ? t('It went back to sleep') : t('Something stirs…')}</h1>
+        <p className="lede">{error ?? t('It takes about 20 seconds.')}</p>
       </section>
 
       {phase.kind === 'error' ? (
@@ -146,23 +149,24 @@ export function Waking() {
               setRun(r => ({ n: r.n + 1, from: phase.seen }));
             }}
           >
-            Try again
+            {t('Try again')}
           </button>
           <button className="btn btn--quiet" onClick={() => navigate({ name: 'home' }, { replace: true })}>
-            Back home
+            {t('Back home')}
           </button>
         </div>
       ) : (
         <ol className="steps" aria-live="polite">
           {STEPS.map((s, i) => {
             const state = i < current ? 'done' : i === current ? 'now' : 'later';
-            const detail = s.step === 'look' && progress.description ? progress.description : s.detail;
+            const detail =
+              s.step === 'look' && progress.description ? progress.description : s.detail && t(s.detail);
             return (
               <li key={s.step} className={`steps__item steps__item--${state}`}>
                 <span className="steps__mark">{state === 'done' ? <Check size={16} /> : <span />}</span>
                 <span className="stack" style={{ gap: 2 }}>
                   <span className="steps__title">
-                    {s.title}
+                    {t(s.title)}
                     <span className="sr-only">
                       {state === 'done' ? ' (done)' : state === 'now' ? ' (now)' : ''}
                     </span>
@@ -176,7 +180,7 @@ export function Waking() {
       )}
 
       <p className="lede waking__foot">
-        <Phone size={16} /> Everything happens on this device
+        <Phone size={16} /> {t('Everything happens on this device')}
       </p>
     </main>
   );

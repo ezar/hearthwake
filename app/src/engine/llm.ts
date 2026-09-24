@@ -1,6 +1,7 @@
 // The on-device LLM (WebLLM): loading, soul creation, dialogue and memory. Prompts and parsing are ported
 // from the M0 spike, where they were measured on the iPhone (ADRs 0004, 0005, 0013).
 import type { MLCEngine } from '@mlc-ai/web-llm';
+import { languageName } from '../i18n';
 import type { ChatMessage, Soul, SoulProfile } from '../store/souls';
 import { MAX_TRAITS, PITCHES, RATES, SOUL_FIELD_LIMITS, SOUL_GRAMMAR } from './grammar';
 import { log, record, timed, withActivity } from './metrics';
@@ -30,11 +31,48 @@ export interface LlmBackend {
   stream(request: CompletionRequest): AsyncIterable<string>;
 }
 
-// The only model measured to work on the iPhone beside the camera and vision (docs/models.md).
-export const MODEL_F16 = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-export const MODEL_F32 = 'Llama-3.2-1B-Instruct-q4f32_1-MLC';
-// About what the q4f16 build downloads; shown on the first-run screen.
-export const MODEL_DOWNLOAD_MB = 880;
+// The models to choose from. Llama 3.2 1B is the only one measured to work on the iPhone beside the camera
+// and vision (docs/models.md); the larger ones write better, especially in Spanish, on devices with more
+// memory (ADR 0023). `memoryMB` is WebLLM's estimate for the q4f16 build, about what it downloads.
+export interface ModelChoice {
+  key: string;
+  label: string;
+  f16: string;
+  f32: string;
+  memoryMB: number;
+  note: string;
+}
+
+export const MODELS: ModelChoice[] = [
+  {
+    key: 'llama-1b',
+    label: 'Llama 3.2 1B',
+    f16: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    f32: 'Llama-3.2-1B-Instruct-q4f32_1-MLC',
+    memoryMB: 880,
+    note: 'Quick. Works on iPhone.',
+  },
+  {
+    key: 'qwen-1.5b',
+    label: 'Qwen 2.5 1.5B',
+    f16: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    f32: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC',
+    memoryMB: 1630,
+    note: 'Better Spanish. Needs more memory than most phones spare.',
+  },
+  {
+    key: 'llama-3b',
+    label: 'Llama 3.2 3B',
+    f16: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+    f32: 'Llama-3.2-3B-Instruct-q4f32_1-MLC',
+    memoryMB: 2260,
+    note: 'Writes best. For computers.',
+  },
+];
+export const DEFAULT_MODEL = MODELS[0]!;
+
+export const modelByKey = (key: string | undefined) => MODELS.find(m => m.key === key) ?? DEFAULT_MODEL;
+export const modelId = (model: ModelChoice, f16: boolean) => (f16 ? model.f16 : model.f32);
 
 // The KV cache is allocated for the whole window up front; 2048 fits every prompt here and saves memory on
 // iOS (ADR 0005). Sliding windows are off, since WebLLM allows one or the other.
@@ -42,17 +80,16 @@ const CHAT_OPTIONS = { context_window_size: 2048, sliding_window_size: -1 };
 
 // Whether the model's weights are already downloaded, so a returning visitor is not surprised by a
 // download (for example after "Delete downloaded models").
-export async function isModelCached(f16: boolean): Promise<boolean> {
+export async function isModelCached(id: string): Promise<boolean> {
   try {
     const { hasModelInCache } = await import('@mlc-ai/web-llm');
-    return await hasModelInCache(f16 ? MODEL_F16 : MODEL_F32);
+    return await hasModelInCache(id);
   } catch {
     return false;
   }
 }
 
-export function webLlmBackend(f16: boolean): LlmBackend {
-  const modelId = f16 ? MODEL_F16 : MODEL_F32;
+export function webLlmBackend(modelId: string): LlmBackend {
   let engine: MLCEngine | null = null;
   const requireEngine = () => {
     if (!engine) throw new Error('The model is not loaded');
@@ -203,7 +240,7 @@ export function soulPrompt(label: string, description: string): Message[] {
       // No worked example: Llama 3.2 1B copied its details into every soul (ADR 0013).
       content:
         `Object: ${label}. Looks: ${description}\n\n` +
-        'Create the soul of this object in English, as JSON with these fields:\n' +
+        `Create the soul of this object in ${languageName()}, as JSON with these fields (names in English, values in ${languageName()}):\n` +
         `- name: an original, funny proper name (up to ${L.name} characters)\n` +
         `- title: a short epic title (up to ${L.title})\n` +
         `- archetype: a character type in a few words (up to ${L.archetype})\n` +
@@ -264,7 +301,7 @@ export function systemPrompt(soul: Soul): string {
       `Catchphrase: "${soul.catchphrase}".`,
     `Your secret, which you do not share easily: ${soul.secret}.`,
     `What you remember from earlier conversations: ${soul.memory || 'nothing yet, you have just woken up'}.`,
-    'Rules: answer in English, in 1 to 3 short sentences, with no emojis or stage directions.',
+    `Rules: answer in ${languageName()}, in 1 to 3 short sentences, with no emojis or stage directions.`,
     'You are talking with children: be fun; you may be grumpy or dramatic, but never cruel or frightening.',
     'Never ask for personal details and never suggest keeping secrets from parents.',
     'Never suggest touching sockets, fire or hot things, or climbing on anything.',
@@ -326,7 +363,7 @@ export async function compactMemory(llm: LlmBackend, soul: Soul): Promise<Soul> 
         {
           role: 'system',
           content:
-            'You summarize the memories of a character. You write in English, in the third person, ' +
+            `You summarize the memories of a character. You write in ${languageName()}, in the third person, ` +
             '3 to 5 sentences, concrete facts only.',
         },
         {
@@ -458,7 +495,7 @@ export function riddlePrompt(host: Soul, target: Soul, hint: boolean): Message[]
         (hint
           ? 'Give an easier, clearer clue about it in one short sentence. '
           : 'Give a fun riddle about it in one or two short sentences. ') +
-        `Never say "${target.label}", never say its name, and do not add anything else.)`,
+        `Never say "${target.label}", never say its name, answer in ${languageName()}, and do not add anything else.)`,
     },
   ];
 }

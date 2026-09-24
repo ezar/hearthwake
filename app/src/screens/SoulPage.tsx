@@ -7,6 +7,7 @@ import { Link } from '../ui/Link';
 import { Portrait, tintOf } from '../ui/Portrait';
 import { shareSoul } from '../ui/shareCard';
 import { useTitle } from '../ui/useTitle';
+import { useT } from '../i18n';
 
 // The memory summary reads best as separate facts.
 export const memoryFacts = (memory: string) =>
@@ -16,11 +17,12 @@ export const memoryFacts = (memory: string) =>
     .filter(Boolean);
 
 export function SoulPage({ id }: { id: string }) {
+  const t = useT();
   const souls = useSouls();
   const soul = souls?.find(s => s.id === id) ?? null;
   const dialog = useRef<HTMLDialogElement>(null);
   const [sharing, setSharing] = useState<null | 'busy' | 'downloaded' | 'failed'>(null);
-  useTitle(soul ? `${soul.name}'s soul` : '');
+  useTitle(soul ? t("{name}'s soul", { name: soul.name }) : '');
 
   useEffect(() => {
     if (souls && !soul) navigate({ name: 'home' }, { replace: true });
@@ -41,7 +43,7 @@ export function SoulPage({ id }: { id: string }) {
       <header className="bar">
         <button
           className="icon-btn icon-btn--bare"
-          aria-label="Back"
+          aria-label={t('Back')}
           onClick={() => goBack({ name: 'talk', id: soul.id })}
         >
           <Back />
@@ -59,17 +61,17 @@ export function SoulPage({ id }: { id: string }) {
             }
           }}
         >
-          <Share size={20} /> Share
+          <Share size={20} /> {t('Share')}
         </button>
       </header>
       {sharing === 'downloaded' && (
         <p className="notice" role="status">
-          {soul.name}'s card is in your downloads.
+          {t("{name}'s card is in your downloads.", { name: soul.name })}
         </p>
       )}
       {sharing === 'failed' && (
         <p className="notice notice--error" role="alert">
-          The card could not be made. Try again.
+          {t('The card could not be made. Try again.')}
         </p>
       )}
 
@@ -88,7 +90,7 @@ export function SoulPage({ id }: { id: string }) {
       </section>
 
       {soul.traits.length > 0 && (
-        <ul className="chips" aria-label="Traits">
+        <ul className="chips" aria-label={t('Traits')}>
           {soul.traits.map(t => (
             <li key={t}>{t}</li>
           ))}
@@ -96,7 +98,7 @@ export function SoulPage({ id }: { id: string }) {
       )}
 
       <section className="stack">
-        <h2 className="eyebrow">What it remembers</h2>
+        <h2 className="eyebrow">{t('What it remembers')}</h2>
         {facts.length ? (
           <ul className="memories">
             {facts.map((f, i) => (
@@ -106,12 +108,14 @@ export function SoulPage({ id }: { id: string }) {
         ) : (
           <p className="lede">
             {talked
-              ? `Nothing yet. After a few more chats, ${soul.name} starts keeping what matters.`
-              : `Nothing yet. ${soul.name} has only just woken up.`}
+              ? t('Nothing yet. After a few more chats, {name} starts keeping what matters.', {
+                  name: soul.name,
+                })
+              : t('Nothing yet. {name} has only just woken up.', { name: soul.name })}
           </p>
         )}
         <p className="lede" style={{ fontSize: 13 }}>
-          It looks like: {soul.description}
+          {t('It looks like: {description}', { description: soul.description })}
         </p>
       </section>
 
@@ -119,24 +123,26 @@ export function SoulPage({ id }: { id: string }) {
 
       <div className="stack" style={{ gap: 6 }}>
         <Link to={{ name: 'talk', id: soul.id }} className="btn btn--primary">
-          Talk to {soul.name}
+          {t('Talk to {name}', { name: soul.name })}
         </Link>
         <button className="btn btn--danger" onClick={() => dialog.current?.showModal()}>
-          Let it sleep for good
+          {t('Let it sleep for good')}
         </button>
       </div>
 
       <dialog ref={dialog} className="sheet" aria-labelledby="forget-title">
         <h2 id="forget-title" className="display" style={{ fontSize: 24 }}>
-          Let {soul.name} sleep for good?
+          {t('Let {name} sleep for good?', { name: soul.name })}
         </h2>
-        <p className="lede">It will forget everything, and waking the same thing again makes someone new.</p>
+        <p className="lede">
+          {t('It will forget everything, and waking the same thing again makes someone new.')}
+        </p>
         <div className="stack" style={{ gap: 6 }}>
           <button className="btn btn--primary btn--danger-fill" onClick={() => void forget()}>
-            Let it sleep
+            {t('Let it sleep')}
           </button>
           <button className="btn btn--quiet" onClick={() => dialog.current?.close()}>
-            Keep {soul.name}
+            {t('Keep {name}', { name: soul.name })}
           </button>
         </div>
       </dialog>

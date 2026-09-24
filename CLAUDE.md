@@ -9,7 +9,7 @@ M0 (the feasibility spike) is closed: see `docs/decisions/0018-close-m0.md` for 
 - `app/` is the app: Vite + React 19 + TypeScript (strict), served at `/hearthwake/` (ADR 0019). `?mock` swaps in a canned engine for testing without WebGPU.
 - `poc/` is the M0 spike: Vite + TypeScript (strict), vanilla DOM, spec in `docs/m0-spike.md`. Keep it building and deployed at `/hearthwake/poc/`; change it only to keep it working. `poc/reference/` is the original plain-JS prototype, kept as a guide only; it is not built, linted or tested.
 - `docs/models.md` collects measured results per device. `docs/decisions/` holds short ADRs; record every decision there.
-- Code, comments, identifiers, commits and docs in English. UI strings and souls in English too (ADR 0012).
+- Code, comments, identifiers, commits and docs in English. The app's UI and souls speak English or Spanish (ADR 0023): wrap every UI string in `t()` and add its Spanish to `app/src/i18n-es.ts`, or the i18n test fails.
 
 ## Commands (run in `app/` or `poc/`)
 

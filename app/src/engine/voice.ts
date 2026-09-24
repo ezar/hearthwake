@@ -1,5 +1,6 @@
 // Speaking with system voices, hearing with the system speech recognizer (ADR 0017), and the sentence
 // splitter that lets a reply be spoken while it is still being written.
+import { currentLang, speechLang, t } from '../i18n';
 
 export interface Speaker {
   name: string;
@@ -24,7 +25,8 @@ export function unlockSpeech(): void {
   speechSynthesis.speak(u);
 }
 
-export const englishVoices = () => voices.filter(v => v.lang.toLowerCase().startsWith('en'));
+// System voices for the current language ("en" or "es", any region).
+export const voicesForLang = () => voices.filter(v => v.lang.toLowerCase().startsWith(currentLang()));
 
 export function hashName(name: string): number {
   let h = 0;
@@ -34,7 +36,7 @@ export function hashName(name: string): number {
 
 // Deterministic per soul, so the same thing always sounds the same on a device.
 function voiceFor(speaker: Speaker): SpeechSynthesisVoice | null {
-  const pool = englishVoices();
+  const pool = voicesForLang();
   return pool.length ? pool[hashName(speaker.name) % pool.length]! : null;
 }
 
@@ -47,7 +49,7 @@ export function speak(text: string, speaker: Speaker, onStart?: () => void): voi
     u.voice = v;
     u.lang = v.lang;
   } else {
-    u.lang = 'en-US';
+    u.lang = speechLang();
   }
   u.pitch = speaker.pitch;
   u.rate = speaker.rate;
@@ -133,9 +135,9 @@ export interface Listening {
 // Starts listening; call stop() on release. onPartial gets what was heard so far, for live captions.
 export function listen(onPartial?: (text: string) => void): Listening {
   const Ctor = recognitionConstructor();
-  if (!Ctor) throw new Error('This browser cannot listen');
+  if (!Ctor) throw new Error(t('This browser cannot listen'));
   const r = new Ctor();
-  r.lang = 'en-US';
+  r.lang = speechLang();
   r.continuous = true;
   r.interimResults = !!onPartial;
   const finals: string[] = [];
@@ -168,9 +170,9 @@ export function listen(onPartial?: (text: string) => void): Listening {
       if (timedOut) r.abort();
       if (error === 'not-allowed' || error === 'service-not-allowed')
         throw new Error(
-          'Hearthwake is not allowed to listen. Allow the microphone in your browser settings.',
+          t('Hearthwake is not allowed to listen. Allow the microphone in your browser settings.'),
         );
-      if (error) throw new Error(`Could not hear you (${error})`);
+      if (error) throw new Error(t('Could not hear you ({error})', { error }));
       return finals.join(' ').trim();
     },
   };

@@ -15,6 +15,7 @@ import { useSouls, type Soul } from '../store/souls';
 import { Back, Close } from '../ui/icons';
 import { Portrait } from '../ui/Portrait';
 import { useTitle } from '../ui/useTitle';
+import { useT } from '../i18n';
 
 export const ROUNDS = 3;
 const LOOK_EVERY_MS = 700;
@@ -44,12 +45,13 @@ export const canHunt = (souls: readonly Soul[] | null) =>
   !!souls && souls.length >= 2 && souls.some(s => s.signature?.length);
 
 export function Hunt() {
+  const t = useT();
   const souls = useSouls();
   const [phase, setPhase] = useState<Phase>({ kind: 'start' });
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
   const [played, setPlayed] = useState<string[]>([]);
-  useTitle('Treasure hunt');
+  useTitle(t('Treasure hunt'));
 
   useEffect(() => () => stopSpeaking(), []);
 
@@ -61,7 +63,8 @@ export function Hunt() {
     unlockSpeech();
     stopSpeaking();
     const pick = souls ? pickRound(souls, played) : null;
-    if (!pick) return setPhase({ kind: 'error', message: 'Wake at least two things, one with the camera.' });
+    if (!pick)
+      return setPhase({ kind: 'error', message: t('Wake at least two things, one with the camera.') });
     setPhase({ kind: 'clue', ...pick, clue: null, hinted: false });
     setPlayed(p => [...p, pick.target.id]);
     setRound(r => r + 1);
@@ -70,7 +73,7 @@ export function Hunt() {
       setPhase(p => (p.kind === 'clue' && p.target.id === pick.target.id ? { ...p, clue } : p));
       void say(clue, pick.host);
     } catch (e) {
-      setPhase({ kind: 'error', message: (e as Error).message || 'The clue got lost' });
+      setPhase({ kind: 'error', message: (e as Error).message || t('The clue got lost') });
     }
   };
 
@@ -94,7 +97,9 @@ export function Hunt() {
       if (!gaveUp) setScore(s => s + 1);
       setPhase({ kind: 'found', host: phase.host, target: phase.target, gaveUp });
       void say(
-        gaveUp ? `It was me, ${phase.target.name}!` : `You found me! I'm ${phase.target.name}!`,
+        gaveUp
+          ? t('It was me, {name}!', { name: phase.target.name })
+          : t("You found me! I'm {name}!", { name: phase.target.name }),
         phase.target,
       );
     },
@@ -103,7 +108,11 @@ export function Hunt() {
 
   const header = (
     <header className="bar">
-      <button className="icon-btn icon-btn--bare" aria-label="Back" onClick={() => goBack({ name: 'home' })}>
+      <button
+        className="icon-btn icon-btn--bare"
+        aria-label={t('Back')}
+        onClick={() => goBack({ name: 'home' })}
+      >
         <Back />
       </button>
       {round > 0 && (
@@ -131,10 +140,12 @@ export function Hunt() {
       {phase.kind === 'start' && (
         <>
           <section className="stack" style={{ gap: 8 }}>
-            <h1>Treasure hunt</h1>
+            <h1>{t('Treasure hunt')}</h1>
             <p className="lede">
-              One of your things hides, another gives you a riddle. Find the hidden thing and point your
-              camera at it. {ROUNDS} rounds.
+              {t(
+                'One of your things hides, another gives you a riddle. Find the hidden thing and point your camera at it. {n} rounds.',
+                { n: ROUNDS },
+              )}
             </p>
           </section>
           <div className="spacer" />
@@ -143,7 +154,7 @@ export function Hunt() {
             disabled={!canHunt(souls)}
             onClick={() => void nextRound()}
           >
-            {canHunt(souls) ? 'Start the hunt' : 'Wake two things first, one with the camera'}
+            {canHunt(souls) ? t('Start the hunt') : t('Wake two things first, one with the camera')}
           </button>
         </>
       )}
@@ -157,7 +168,11 @@ export function Hunt() {
         <>
           <section className="hunt__center" aria-live="polite">
             <Portrait soul={phase.target} size={150} ring={4} />
-            <h1>{phase.gaveUp ? `It was ${phase.target.name}!` : `You found ${phase.target.name}!`}</h1>
+            <h1>
+              {phase.gaveUp
+                ? t('It was {name}!', { name: phase.target.name })
+                : t('You found {name}!', { name: phase.target.name })}
+            </h1>
             <p className="lede">{phase.target.title}</p>
           </section>
           <div className="spacer" />
@@ -165,7 +180,7 @@ export function Hunt() {
             className="btn btn--primary btn--block"
             onClick={() => (round >= ROUNDS ? setPhase({ kind: 'done' }) : void nextRound())}
           >
-            {round >= ROUNDS ? 'See the score' : 'Next riddle'}
+            {round >= ROUNDS ? t('See the score') : t('Next riddle')}
           </button>
         </>
       )}
@@ -177,7 +192,11 @@ export function Hunt() {
               <span> / {ROUNDS}</span>
             </p>
             <h1>
-              {score === ROUNDS ? 'A perfect hunt!' : score > 0 ? 'Well hunted!' : 'They hid well this time.'}
+              {score === ROUNDS
+                ? t('A perfect hunt!')
+                : score > 0
+                  ? t('Well hunted!')
+                  : t('They hid well this time.')}
             </h1>
           </section>
           <div className="spacer" />
@@ -190,7 +209,7 @@ export function Hunt() {
               setPhase({ kind: 'start' });
             }}
           >
-            Play again
+            {t('Play again')}
           </button>
         </>
       )}
@@ -215,6 +234,7 @@ function Seek({
   onGiveUp: () => void;
   onHint: () => void;
 }) {
+  const t = useT();
   const video = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -248,7 +268,7 @@ function Seek({
         }, LOOK_EVERY_MS);
       } catch (e) {
         log(`Hunt camera error: ${(e as Error).message}`);
-        setError('The camera could not start. Allow it in your browser settings.');
+        setError(t('The camera could not start. Allow it in your browser settings.'));
       }
     })();
     return () => {
@@ -262,7 +282,7 @@ function Seek({
 
   return (
     <main className="screen screen--flush wake hunt__seek">
-      <video ref={video} className="wake__video" playsInline muted aria-label="Camera view" />
+      <video ref={video} className="wake__video" playsInline muted aria-label={t('Camera view')} />
       <div
         ref={frameRef}
         className="wake__frame"
@@ -274,7 +294,7 @@ function Seek({
         </svg>
       </div>
       <header className="bar wake__top">
-        <button className="icon-btn wake__close" aria-label="Give up" onClick={onGiveUp}>
+        <button className="icon-btn wake__close" aria-label={t('Give up')} onClick={onGiveUp}>
           <Close size={20} />
         </button>
       </header>
@@ -289,15 +309,15 @@ function Seek({
           </p>
         ) : (
           <p className="lede" style={{ fontSize: 14 }}>
-            Find it and point the camera at it.
+            {t('Find it and point the camera at it.')}
           </p>
         )}
         <div className="hunt__buttons">
           <button className="btn btn--quiet" disabled={phase.hinted} onClick={onHint}>
-            {phase.hinted ? 'Hint given' : 'Give me a hint'}
+            {phase.hinted ? t('Hint given') : t('Give me a hint')}
           </button>
           <button className="btn btn--quiet" onClick={onGiveUp}>
-            I give up
+            {t('I give up')}
           </button>
         </div>
       </section>

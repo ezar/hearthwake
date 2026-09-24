@@ -1,6 +1,8 @@
 // Startup, the first-run gate and the screen for the current route.
 import { useEffect, useState } from 'react';
-import { ensureLlm, initEngine, llmIsCached } from './engine/engine';
+import { ensureLlm, initEngine, llmIsCached, setModel } from './engine/engine';
+import { modelByKey } from './engine/llm';
+import { setLang, t, useT } from './i18n';
 import { takeInterruptedActivities } from './engine/metrics';
 import { unlockSpeech } from './engine/voice';
 import { goBack, navigate, useRoute } from './router';
@@ -29,12 +31,15 @@ const interrupted = takeInterruptedActivities();
 
 export function App() {
   const route = useRoute();
+  useT();
   const [boot, setBoot] = useState<Boot>({ state: 'starting' });
   const [introDone, setIntroDone] = useState(false);
 
   useEffect(() => {
     (async () => {
       const [device, settings] = await Promise.all([initEngine(), loadSettings()]);
+      setLang(settings.lang);
+      setModel(modelByKey(settings.model));
       await importPocSouls();
       await loadSouls();
       // Onboarded means the model is on this device; if its files were deleted, the first-run screen
@@ -57,7 +62,7 @@ export function App() {
   if (boot.state === 'failed')
     return (
       <main className="screen">
-        <h1>Something went wrong</h1>
+        <h1>{t('Something went wrong')}</h1>
         <p className="notice notice--error" role="alert">
           Hearthwake could not open its storage ({boot.message}). Private browsing can block it: try a normal
           tab.
@@ -95,7 +100,7 @@ export function App() {
     case 'hunt':
       return <Hunt />;
     case 'about':
-      return <Intro doneLabel="Done" onDone={() => goBack({ name: 'home' })} />;
+      return <Intro doneLabel={t('Done')} onDone={() => goBack({ name: 'home' })} />;
     default:
       return <Home interrupted={interrupted} />;
   }
