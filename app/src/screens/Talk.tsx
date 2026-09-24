@@ -2,7 +2,14 @@
 // sentence by sentence as they arrive.
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { ensureLlm, useEngine } from '../engine/engine';
-import { compactMemory, needsCompaction, reply, stripStageDirections } from '../engine/llm';
+import {
+  compactMemory,
+  needsCompaction,
+  reply,
+  stripStageDirections,
+  WELCOME_BACK_AFTER_MS,
+  welcomeBack,
+} from '../engine/llm';
 import { log, record } from '../engine/metrics';
 import {
   canHear,
@@ -13,6 +20,7 @@ import {
   unlockSpeech,
   type Listening,
 } from '../engine/voice';
+import { takeWelcomeBack } from '../engine/wake';
 import { goBack, navigate } from '../router';
 import { loadSettings, saveSettings } from '../store/settings';
 import { getSoul, saveSoul, useSouls, type ChatMessage, type Soul } from '../store/souls';
@@ -56,6 +64,49 @@ export function Talk({ id }: { id: string }) {
   useEffect(() => {
     void loadSettings().then(s => setAloud(s.speak));
   }, []);
+
+  // A friend coming back is greeted with what the soul remembers: when the camera recognised the thing, or
+  // after a few hours away (ADR 0021).
+  const [seenAgain] = useState(() => takeWelcomeBack(id));
+  const greeted = useRef(false);
+  useEffect(() => {
+    if (!soul || greeted.current) return;
+    if (!seenAgain && Date.now() - soul.lastTalkedAt < WELCOME_BACK_AFTER_MS) return;
+    greeted.current = true;
+    const soulId = soul.id;
+    const run = async () => {
+      setBusy('thinking');
+      setStreaming('');
+      try {
+        const [backend, settings] = await Promise.all([ensureLlm(), loadSettings()]);
+        const current = getSoul(soulId);
+        if (!current) return;
+        const splitter = sentenceSplitter();
+        const say = (sentence: string) => {
+          const clean = stripStageDirections(sentence);
+          if (settings.speak && clean) speak(clean, current);
+        };
+        let shown = '';
+        const text = await welcomeBack(backend, current, seenAgain, delta => {
+          shown += delta;
+          setStreaming(stripStageDirections(shown));
+          splitter.push(delta).forEach(say);
+        });
+        splitter.flush().forEach(say);
+        if (text) {
+          const now = Date.now();
+          const history: ChatMessage[] = [...current.history, { role: 'assistant', content: text, at: now }];
+          await saveSoul({ ...current, history, lastTalkedAt: now });
+        }
+      } catch (e) {
+        log(`Welcome back failed: ${(e as Error).message}`);
+      } finally {
+        setStreaming(null);
+        setBusy(null);
+      }
+    };
+    void run();
+  }, [soul, seenAgain]);
 
   if (!soul) return <main className="screen" />;
 

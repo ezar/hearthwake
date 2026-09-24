@@ -7,6 +7,7 @@ import { goBack } from '../router';
 import { loadSettings, saveSettings, type Settings as AppSettings } from '../store/settings';
 import { useSouls } from '../store/souls';
 import { Back } from '../ui/icons';
+import { Link } from '../ui/Link';
 import { useTitle } from '../ui/useTitle';
 
 export function Settings() {
@@ -105,6 +106,14 @@ export function Settings() {
             Copy
           </button>
         </div>
+
+        <Link to={{ name: 'about' }} className="setting setting--link">
+          <span className="stack" style={{ gap: 2 }}>
+            <span className="setting__title">About this experiment</span>
+            <span className="setting__detail">What Hearthwake is and how it works.</span>
+          </span>
+          <span aria-hidden="true">›</span>
+        </Link>
 
         <a className="setting setting--link" href={`${import.meta.env.BASE_URL}poc/`}>
           <span className="stack" style={{ gap: 2 }}>
