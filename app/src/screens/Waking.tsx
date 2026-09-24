@@ -72,7 +72,7 @@ export function Waking() {
     return () => {
       cancelled = true;
     };
-  }, [what, run]);
+  }, [what, run, t]);
 
   const photo = what?.kind === 'photo' ? what.thumbnail : null;
   const current = STEPS.findIndex(s => s.step === progress.step);

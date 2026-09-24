@@ -29,6 +29,8 @@ export interface LlmBackend {
   load(onProgress: (fraction: number, text: string) => void): Promise<void>;
   complete(request: CompletionRequest): Promise<Completion>;
   stream(request: CompletionRequest): AsyncIterable<string>;
+  // The engine's own speed report ("prefill: 120.5 tok/s, decode: 28.3 tok/s"), when it has one.
+  stats?(): Promise<string>;
 }
 
 // The models to choose from. Llama 3.2 1B is the only one measured to work on the iPhone beside the camera
@@ -118,6 +120,7 @@ export function webLlmBackend(modelId: string): LlmBackend {
         tokens: reply.usage?.completion_tokens ?? null,
       };
     },
+    stats: () => requireEngine().runtimeStatsText(),
     async *stream({ messages, temperature, max_tokens }) {
       const chunks = await requireEngine().chat.completions.create({
         stream: true,
@@ -512,3 +515,57 @@ export async function riddle(llm: LlmBackend, host: Soul, target: Soul, hint = f
 }
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Lab: questions about text read from a label or menu.
+
+export function aboutTextPrompt(text: string, question: string): Message[] {
+  return [
+    {
+      role: 'system',
+      content:
+        'You help people understand labels, menus and signs photographed with a phone. The text comes from OCR ' +
+        'and may have mistakes; read past them. Answer in ' +
+        `${languageName()}, briefly and plainly, in at most 4 short sentences. If the text does not say, say so. ` +
+        'For allergies and health, add that the package itself is what to trust.',
+    },
+    { role: 'user', content: `Text:\n"""\n${text.slice(0, 1500)}\n"""\n\nQuestion: ${question}` },
+  ];
+}
+
+// Lab: a private diary that reflects on the last entries.
+
+export function reflectPrompt(entries: readonly { at: number; text: string }[], now = Date.now()): Message[] {
+  const days = (at: number) => Math.round((now - at) / 86_400_000);
+  const list = entries
+    .slice(-12)
+    .map(e => `- ${days(e.at) === 0 ? 'today' : `${days(e.at)} days ago`}: ${e.text.slice(0, 400)}`)
+    .join('\n');
+  return [
+    {
+      role: 'system',
+      content:
+        `You are a warm, discreet journaling companion. You write in ${languageName()}. You never judge, ` +
+        'diagnose or give medical advice.',
+    },
+    {
+      role: 'user',
+      content:
+        `My recent diary entries:\n${list}\n\nIn at most 5 short sentences: what stands out, one thing ` +
+        'that went well, and one gentle question for me to think about.',
+    },
+  ];
+}
+
+export async function streamAnswer(
+  llm: LlmBackend,
+  messages: Message[],
+  onDelta: (delta: string) => void,
+  maxTokens = 220,
+): Promise<string> {
+  let full = '';
+  for await (const delta of llm.stream({ messages, temperature: 0.5, max_tokens: maxTokens })) {
+    full += delta;
+    onDelta(delta);
+  }
+  return full.trim();
+}

@@ -123,6 +123,10 @@ export function Home({ interrupted }: { interrupted: string[] }) {
         </section>
       )}
 
+      <Link to={{ name: 'lab' }} className="home__lab">
+        {t('Lab: more experiments with on-device AI')} <span aria-hidden="true">›</span>
+      </Link>
+
       <div className="spacer" />
 
       <div className="stack home__actions">

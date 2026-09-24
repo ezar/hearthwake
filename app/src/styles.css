@@ -1291,3 +1291,98 @@ h1 {
   font-size: 15px;
   font-weight: 600;
 }
+
+/* Lab. */
+.home__lab {
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 10px 0;
+}
+.home__lab:hover {
+  color: var(--text);
+}
+.lab-row {
+  align-items: flex-start;
+}
+.lab-row__icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 22px;
+  background: var(--surface-2);
+  color: var(--ember);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lab-row__detail {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.bench__big {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 72px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ember);
+}
+.bench__big span {
+  font-size: 24px;
+  color: var(--muted);
+}
+.bench__table {
+  margin: 0;
+  border-radius: 18px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.bench__table div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--surface-2);
+  font-size: 15px;
+}
+.bench__table div:last-child {
+  border-bottom: 0;
+}
+.bench__table dt {
+  color: var(--muted);
+}
+.bench__table dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.reader__camera {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.reader__camera video {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 20px;
+  background: #2a2521;
+}
+.diary__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.diary__delete {
+  align-self: flex-end;
+  min-height: 32px;
+  padding: 0;
+  font-size: 13px;
+}
+.icon-btn--on {
+  background: var(--ember);
+  color: var(--on-ember);
+  border-color: var(--ember);
+}

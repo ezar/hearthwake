@@ -1,7 +1,8 @@
 // A small promise wrapper over IndexedDB: one database, one object store per kind of record.
 const DB_NAME = 'hearthwake';
-const DB_VERSION = 1;
-export const STORES = ['souls', 'settings'] as const;
+const DB_VERSION = 2;
+// Version 2 added the Lab's private diary.
+export const STORES = ['souls', 'settings', 'diary'] as const;
 export type StoreName = (typeof STORES)[number];
 
 let opening: Promise<IDBDatabase> | null = null;
