@@ -28,6 +28,8 @@ export interface Soul extends SoulProfile {
   description: string;
   // A small JPEG data URL of the photo, or '' for things woken from a description.
   thumbnail: string;
+  // The photo's image signature, to recognise the thing when the camera sees it again (ADR 0021).
+  signature?: number[];
   // The running summary of older conversations, and the recent messages kept word for word.
   memory: string;
   history: ChatMessage[];

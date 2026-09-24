@@ -55,8 +55,9 @@ export function mockLlm(): LlmBackend {
       }
       return { text: 'The player talked about their day.', finishReason: 'stop', tokens: 12 };
     },
-    async *stream() {
-      const text = REPLIES[turn++ % REPLIES.length]!;
+    async *stream({ messages }) {
+      const back = /The player is back/.test(messages.at(-1)?.content ?? '');
+      const text = back ? 'Oh, you are back! I kept your seat warm.' : REPLIES[turn++ % REPLIES.length]!;
       for (const word of text.split(/(?<= )/)) {
         await wait(40);
         yield word;
@@ -74,6 +75,16 @@ export function mockVision(): VisionBackend {
       { label: 'sliding door', score: 0.49 },
       { label: 'wardrobe', score: 0.1 },
     ],
+    // Mean colours of a 4x4 grid: the same frame always gives the same signature.
+    embed(image) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 4;
+      const ctx = c.getContext('2d', { willReadFrequently: true })!;
+      ctx.drawImage(image, 0, 0, 4, 4);
+      return Array.from(ctx.getImageData(0, 0, 4, 4).data)
+        .filter((_, i) => i % 4 !== 3)
+        .map(v => v / 255);
+    },
   };
 }
 

@@ -15,6 +15,7 @@ describe('routes', () => {
     const routes: Route[] = [
       { name: 'home' },
       { name: 'settings' },
+      { name: 'about' },
       { name: 'soul', id: 'a b/c' },
       { name: 'talk', id: '123' },
     ];

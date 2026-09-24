@@ -340,3 +340,58 @@ export async function compactMemory(llm: LlmBackend, soul: Soul): Promise<Soul> 
   );
   return { ...soul, memory: text.trim() || soul.memory, history: soul.history.slice(-KEEP_AFTER_COMPACT) };
 }
+
+// Welcome back.
+
+// Coming back after this long earns a greeting that remembers (ADR 0021).
+export const WELCOME_BACK_AFTER_MS = 3 * 60 * 60 * 1000;
+
+// How long it has been, in words the model can use: "A day has passed".
+export function describeGap(ms: number): string {
+  const hours = ms / 3_600_000;
+  if (hours < 1) return 'A few minutes have passed';
+  if (hours < 20) return 'A few hours have passed';
+  const days = Math.round(hours / 24);
+  if (days <= 1) return 'A day has passed';
+  if (days < 14) return `${days} days have passed`;
+  const weeks = Math.round(days / 7);
+  return weeks < 9 ? `${weeks} weeks have passed` : 'Months have passed';
+}
+
+export function welcomeBackPrompt(soul: Soul, now: number, seenAgain: boolean): Message[] {
+  const gap = describeGap(now - soul.lastTalkedAt);
+  return [
+    { role: 'system', content: systemPrompt(soul) },
+    ...trimHistory(soul.history),
+    {
+      role: 'user',
+      content:
+        `(${gap} since you last talked. The player is back` +
+        (seenAgain ? ' and has just pointed the camera at you again' : '') +
+        '. Greet them like an old friend in 1 or 2 short sentences, as yourself. ' +
+        'If you remember something specific they told you before, mention it or ask about it.)',
+    },
+  ];
+}
+
+// Streams the greeting of a soul whose friend has come back. Returns the cleaned greeting.
+export async function welcomeBack(
+  llm: LlmBackend,
+  soul: Soul,
+  seenAgain: boolean,
+  onDelta: (delta: string) => void,
+  now = Date.now(),
+): Promise<string> {
+  return withActivity('welcome back', async () => {
+    let full = '';
+    for await (const delta of llm.stream({
+      messages: welcomeBackPrompt(soul, now, seenAgain),
+      temperature: 0.8,
+      max_tokens: 90,
+    })) {
+      full += delta;
+      onDelta(delta);
+    }
+    return endAtSentence(stripStageDirections(full));
+  });
+}

@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { ensureLlm, initEngine, llmIsCached } from './engine/engine';
 import { takeInterruptedActivities } from './engine/metrics';
 import { unlockSpeech } from './engine/voice';
-import { navigate, useRoute } from './router';
+import { goBack, navigate, useRoute } from './router';
 import { Describe } from './screens/Describe';
 import { Home } from './screens/Home';
+import { Intro } from './screens/Intro';
 import { Settings } from './screens/Settings';
 import { SoulPage } from './screens/SoulPage';
 import { Talk } from './screens/Talk';
@@ -27,6 +28,7 @@ const interrupted = takeInterruptedActivities();
 export function App() {
   const route = useRoute();
   const [boot, setBoot] = useState<Boot>({ state: 'starting' });
+  const [introDone, setIntroDone] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -61,6 +63,7 @@ export function App() {
       </main>
     );
   if (!boot.supported) return <Unsupported />;
+  if (!boot.onboarded && !introDone) return <Intro onDone={() => setIntroDone(true)} />;
   if (!boot.onboarded)
     return (
       <Welcome
@@ -85,6 +88,8 @@ export function App() {
       return <SoulPage key={route.id} id={route.id} />;
     case 'settings':
       return <Settings />;
+    case 'about':
+      return <Intro doneLabel="Done" onDone={() => goBack({ name: 'home' })} />;
     default:
       return <Home interrupted={interrupted} />;
   }
