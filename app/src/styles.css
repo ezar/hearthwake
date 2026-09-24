@@ -1250,3 +1250,44 @@ h1 {
   display: flex;
   justify-content: space-between;
 }
+
+/* Settings: selects and model options. */
+.select {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  padding: 0 12px;
+  font-size: 15px;
+}
+.setting--column {
+  flex-direction: column;
+  align-items: stretch;
+  border: 0;
+  margin: 0;
+  gap: 10px;
+}
+.setting--column legend {
+  float: left;
+  padding: 0;
+}
+.option {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.option--on {
+  border-color: var(--ember);
+}
+.option input {
+  accent-color: var(--ember);
+  margin-top: 3px;
+}
+.option__title {
+  font-size: 15px;
+  font-weight: 600;
+}

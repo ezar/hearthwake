@@ -178,3 +178,23 @@ test('a treasure hunt: solve the riddle, point the camera, score', async ({ page
   }
   await expect(page.getByRole('heading', { name: 'A perfect hunt!' })).toBeVisible();
 });
+
+test('the app speaks Spanish when asked, and keeps it', async ({ page }) => {
+  await onboard(page);
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByLabel(/Language/).selectOption('es');
+  await expect(page.getByRole('heading', { name: 'Ajustes' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Ajustes' })).toBeVisible();
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await expect(page.getByRole('heading', { name: 'Todo en calma' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Despertar algo' })).toBeVisible();
+});
+
+test('a Spanish browser starts in Spanish', async ({ browser }) => {
+  const context = await browser.newContext({ locale: 'es-ES' });
+  const page = await context.newPage();
+  await page.goto('./?mock');
+  await expect(page.getByRole('heading', { name: 'Las cosas de tu casa despiertan.' })).toBeVisible();
+  await context.close();
+});

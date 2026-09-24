@@ -1,6 +1,7 @@
 // A soul's card, drawn on a canvas and shared as a PNG: its photo, name, title, catchphrase and traits.
 // Portrait 4:5, the size social feeds show best.
 import type { Soul } from '../store/souls';
+import { t } from '../i18n';
 import { tintOf } from './Portrait';
 
 export const CARD_WIDTH = 1080;
@@ -118,7 +119,7 @@ export async function drawCard(soul: Soul): Promise<Blob> {
   // Footer.
   ctx.fillStyle = '#f08a4b';
   ctx.font = `600 40px ${SERIF}`;
-  ctx.fillText('Woke up with Hearthwake', cx, CARD_HEIGHT - 110);
+  ctx.fillText(t('Woke up with Hearthwake'), cx, CARD_HEIGHT - 110);
   ctx.fillStyle = '#bfae99';
   ctx.font = `500 32px ${SANS}`;
   ctx.fillText(APP_URL, cx, CARD_HEIGHT - 60);

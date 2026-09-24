@@ -28,11 +28,13 @@ import { Back, Keyboard, Mic, Muted, Send, Speaker } from '../ui/icons';
 import { Link } from '../ui/Link';
 import { Portrait } from '../ui/Portrait';
 import { useTitle } from '../ui/useTitle';
+import { currentLang, useT } from '../i18n';
 
 type Mode = 'voice' | 'text';
 type Busy = null | 'hearing' | 'thinking' | 'remembering';
 
 export function Talk({ id }: { id: string }) {
+  const t = useT();
   const souls = useSouls();
   const soul = souls?.find(s => s.id === id) ?? null;
   const { llm, device } = useEngine();
@@ -145,7 +147,7 @@ export function Talk({ id }: { id: string }) {
       });
       splitter.flush().forEach(say);
       const said = answer || shown.trim();
-      if (!said) throw new Error(`${current.name} had nothing to say. Try again.`);
+      if (!said) throw new Error(t('{name} had nothing to say. Try again.', { name: current.name }));
       const now = Date.now();
       const history: ChatMessage[] = [
         ...current.history,
@@ -169,7 +171,7 @@ export function Talk({ id }: { id: string }) {
       setStreaming(null);
       setPending(null);
       setDraft(words);
-      setError((e as Error).message || 'It could not answer');
+      setError((e as Error).message || t('It could not answer'));
     } finally {
       setBusy(null);
     }
@@ -204,7 +206,7 @@ export function Talk({ id }: { id: string }) {
       setBusy(null);
       setCaption('');
       if (heard) await send(heard, true);
-      else setError("I didn't catch that. Hold the button while you speak.");
+      else setError(t("I didn't catch that. Hold the button while you speak."));
     } catch (e) {
       setBusy(null);
       setCaption('');
@@ -230,11 +232,11 @@ export function Talk({ id }: { id: string }) {
 
   const status =
     busy === 'hearing'
-      ? 'Listening back…'
+      ? t('Listening back…')
       : busy === 'remembering'
-        ? `${soul.name} is tidying its memories…`
+        ? t('{name} is tidying its memories…', { name: soul.name })
         : busy === 'thinking' && llm.state === 'loading'
-          ? `Waking ${soul.name}'s voice… ${Math.round(llm.progress * 100)}%`
+          ? t("Waking {name}'s voice… {n}%", { name: soul.name, n: Math.round(llm.progress * 100) })
           : null;
 
   return (
@@ -242,7 +244,7 @@ export function Talk({ id }: { id: string }) {
       <header className="talk__head">
         <button
           className="icon-btn icon-btn--bare"
-          aria-label="Back to your hearth"
+          aria-label={t('Back to your hearth')}
           onClick={() => goBack({ name: 'home' })}
         >
           <Back />
@@ -256,7 +258,7 @@ export function Talk({ id }: { id: string }) {
         </Link>
         <button
           className="icon-btn icon-btn--bare"
-          aria-label="Speak replies aloud"
+          aria-label={t('Speak replies aloud')}
           aria-pressed={aloud}
           onClick={() => {
             const next = !aloud;
@@ -269,13 +271,14 @@ export function Talk({ id }: { id: string }) {
         </button>
       </header>
 
-      <section className="talk__log" aria-label="Conversation" aria-live="polite">
+      <section className="talk__log" aria-label={t('Conversation')} aria-live="polite">
         <p className="talk__day">
-          Woke up{' '}
-          {new Date(soul.createdAt).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'short',
-            day: 'numeric',
+          {t('Woke up {date}', {
+            date: new Date(soul.createdAt).toLocaleDateString(currentLang() === 'es' ? 'es-ES' : 'en-US', {
+              weekday: 'long',
+              month: 'short',
+              day: 'numeric',
+            }),
           })}
         </p>
         {soul.history.map((m, i) =>
@@ -295,17 +298,17 @@ export function Talk({ id }: { id: string }) {
               }}
             >
               {m.content}
-              <span className="sr-only"> (say it again)</span>
+              <span className="sr-only">{t('(say it again)')}</span>
             </button>
           ),
         )}
         {pending && <p className="bubble bubble--me">{pending}</p>}
         {streaming !== null && (
           <p className="bubble bubble--it">
-            {streaming || <span className="dots" aria-label={`${soul.name} is thinking`} />}
+            {streaming || <span className="dots" aria-label={t('{name} is thinking', { name: soul.name })} />}
           </p>
         )}
-        {listening && <p className="bubble bubble--me bubble--caption">{caption || 'Listening…'}</p>}
+        {listening && <p className="bubble bubble--me bubble--caption">{caption || t('Listening…')}</p>}
         {error && (
           <p className="notice notice--error" role="alert">
             {error}
@@ -324,7 +327,7 @@ export function Talk({ id }: { id: string }) {
           <div className="talk__row">
             <button
               className="icon-btn talk__switch"
-              aria-label="Type instead"
+              aria-label={t('Type instead')}
               onClick={() => setMode('text')}
             >
               <Keyboard />
@@ -341,7 +344,7 @@ export function Talk({ id }: { id: string }) {
               aria-pressed={listening}
             >
               <Mic />
-              {listening ? 'Listening… let go to send' : 'Hold to talk'}
+              {listening ? t('Listening… let go to send') : t('Hold to talk')}
             </button>
           </div>
         ) : (
@@ -359,26 +362,26 @@ export function Talk({ id }: { id: string }) {
               <button
                 type="button"
                 className="icon-btn talk__switch"
-                aria-label="Talk instead"
+                aria-label={t('Talk instead')}
                 onClick={() => setMode('voice')}
               >
                 <Mic />
               </button>
             )}
             <label className="sr-only" htmlFor="talk-input">
-              Message to {soul.name}
+              {t('Message to {name}', { name: soul.name })}
             </label>
             <input
               id="talk-input"
               className="field__input talk__input"
               value={draft}
               onChange={e => setDraft(e.target.value)}
-              placeholder={`Say something to ${soul.name}`}
+              placeholder={t('Say something to {name}', { name: soul.name })}
               autoComplete="off"
               enterKeyHint="send"
               maxLength={300}
             />
-            <button className="icon-btn talk__send" aria-label="Send" disabled={!!busy || !draft.trim()}>
+            <button className="icon-btn talk__send" aria-label={t('Send')} disabled={!!busy || !draft.trim()}>
               <Send />
             </button>
           </form>

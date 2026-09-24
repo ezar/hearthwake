@@ -1,7 +1,9 @@
 // The onboarding: what Hearthwake is, how it works and why it is an experiment, in three cards that can be
 // swiped or stepped through. Shown before the first download, and again from Settings (ADR 0021).
-import { useRef, useState, type ReactNode } from 'react';
-import { MODEL_DOWNLOAD_MB } from '../engine/llm';
+import { useRef, useState } from 'react';
+import { useEngine } from '../engine/engine';
+import type { ModelChoice } from '../engine/llm';
+import { useT } from '../i18n';
 import { Flame, Mic, Phone } from '../ui/icons';
 import { TINTS } from '../ui/Portrait';
 
@@ -48,10 +50,11 @@ function Things() {
 }
 
 function Chat() {
+  const t = useT();
   return (
     <div className="intro__art intro__chat" aria-hidden="true">
-      <p className="bubble bubble--it">Oh, you're back! Did Luna ever come home?</p>
-      <p className="bubble bubble--me">She did! She was under the stairs.</p>
+      <p className="bubble bubble--it">{t("Oh, you're back! Did Luna ever come home?")}</p>
+      <p className="bubble bubble--me">{t('She did! She was under the stairs.')}</p>
       <span className="intro__mic">
         <Mic />
       </span>
@@ -72,31 +75,37 @@ function Local() {
   );
 }
 
-const CARDS: { art: ReactNode; title: string; body: ReactNode }[] = [
-  {
-    art: <Things />,
-    title: 'The things in your home wake up.',
-    body: 'Point your phone at a lamp, a kettle or a door. It wakes up with a name, a personality and a voice of its own.',
-  },
-  {
-    art: <Chat />,
-    title: 'Talk to them. They remember.',
-    body: 'Hold the button and speak, or type. They answer out loud, keep what you tell them, and know you when you come back.',
-  },
-  {
-    art: <Local />,
-    title: 'An experiment in AI on your device.',
-    body: (
-      <>
-        Everything thinks inside your browser: a language model (Llama 3.2 1B, through WebLLM and WebGPU)
-        running on this device. No server, no account. It is early days: the first download is about{' '}
-        {MODEL_DOWNLOAD_MB} MB, waking a thing takes about 20 seconds, and they only speak English.
-      </>
-    ),
-  },
-];
+function cards(t: (s: string, v?: Record<string, string | number>) => string, model: ModelChoice) {
+  return [
+    {
+      art: <Things />,
+      title: t('The things in your home wake up.'),
+      body: t(
+        'Point your phone at a lamp, a kettle or a door. It wakes up with a name, a personality and a voice of its own.',
+      ),
+    },
+    {
+      art: <Chat />,
+      title: t('Talk to them. They remember.'),
+      body: t(
+        'Hold the button and speak, or type. They answer out loud, keep what you tell them, and know you when you come back.',
+      ),
+    },
+    {
+      art: <Local />,
+      title: t('An experiment in AI on your device.'),
+      body: t(
+        'Everything thinks inside your browser: a language model ({model}, through WebLLM and WebGPU) running on this device. No server, no account. It is early days: the first download is about {mb} MB, waking a thing takes about 20 seconds, and small models write better English than Spanish.',
+        { model: model.label, mb: model.memoryMB },
+      ),
+    },
+  ];
+}
 
-export function Intro({ onDone, doneLabel = "Let's begin" }: { onDone: () => void; doneLabel?: string }) {
+export function Intro({ onDone, doneLabel }: { onDone: () => void; doneLabel?: string }) {
+  const t = useT();
+  const { model } = useEngine();
+  const CARDS = cards(t, model);
   const track = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const last = index === CARDS.length - 1;
@@ -125,7 +134,7 @@ export function Intro({ onDone, doneLabel = "Let's begin" }: { onDone: () => voi
         </span>
         {!last && (
           <button className="btn btn--quiet" onClick={onDone}>
-            Skip
+            {t('Skip')}
           </button>
         )}
       </header>
@@ -149,7 +158,7 @@ export function Intro({ onDone, doneLabel = "Let's begin" }: { onDone: () => voi
             key={i}
             className="intro__card"
             aria-roledescription="slide"
-            aria-label={`${i + 1} of ${CARDS.length}`}
+            aria-label={t('{n} of {total}', { n: i + 1, total: CARDS.length })}
             aria-hidden={i !== index}
           >
             {card.art}
@@ -159,13 +168,13 @@ export function Intro({ onDone, doneLabel = "Let's begin" }: { onDone: () => voi
         ))}
       </div>
 
-      <div className="intro__dots" role="tablist" aria-label="Pages">
+      <div className="intro__dots" role="tablist" aria-label={t('Pages')}>
         {CARDS.map((_, i) => (
           <button
             key={i}
             role="tab"
             aria-selected={i === index}
-            aria-label={`Page ${i + 1}`}
+            aria-label={t('Page {n}', { n: i + 1 })}
             className={`intro__dot${i === index ? ' intro__dot--on' : ''}`}
             onClick={() => go(i)}
           />
@@ -173,7 +182,7 @@ export function Intro({ onDone, doneLabel = "Let's begin" }: { onDone: () => voi
       </div>
 
       <button className="btn btn--primary btn--block" onClick={() => (last ? onDone() : go(index + 1))}>
-        {last ? doneLabel : 'Next'}
+        {last ? (doneLabel ?? t("Let's begin")) : t('Next')}
       </button>
     </main>
   );

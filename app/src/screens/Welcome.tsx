@@ -2,14 +2,15 @@
 import { useState } from 'react';
 import { requestPersistence } from '../engine/device';
 import { ensureLlm, useEngine } from '../engine/engine';
-import { MODEL_DOWNLOAD_MB } from '../engine/llm';
 import { unlockSpeech } from '../engine/voice';
+import { useT } from '../i18n';
 import { Check, Download, Flame, Keyboard } from '../ui/icons';
 import { useTitle } from '../ui/useTitle';
 import { useWakeLock } from '../ui/useWakeLock';
 
 export function Welcome({ onDone }: { onDone: () => void }) {
-  const { device, llm } = useEngine();
+  const { device, llm, model } = useEngine();
+  const t = useT();
   const [started, setStarted] = useState(false);
 
   const start = async () => {
@@ -25,10 +26,10 @@ export function Welcome({ onDone }: { onDone: () => void }) {
   };
 
   const loading = llm.state === 'loading';
-  useTitle('Welcome');
+  useTitle(t('Welcome'));
   useWakeLock(started && loading);
   const percent = loading ? Math.round(llm.progress * 100) : llm.state === 'ready' ? 100 : 0;
-  const downloadedMB = Math.round((percent / 100) * MODEL_DOWNLOAD_MB);
+  const downloadedMB = Math.round((percent / 100) * model.memoryMB);
 
   return (
     <main className="screen welcome">
@@ -36,10 +37,11 @@ export function Welcome({ onDone }: { onDone: () => void }) {
         <Flame size={56} />
       </span>
       <section className="stack" style={{ gap: 12 }}>
-        <h1 className="welcome__title">The things in your home are about to wake up.</h1>
+        <h1 className="welcome__title">{t('The things in your home are about to wake up.')}</h1>
         <p className="lede">
-          Point your phone at a lamp, a kettle or a door, and it will have a name, a voice and something to
-          say.
+          {t(
+            'Point your phone at a lamp, a kettle or a door, and it will have a name, a voice and something to say.',
+          )}
         </p>
       </section>
 
@@ -48,27 +50,29 @@ export function Welcome({ onDone }: { onDone: () => void }) {
           <span className="ok">
             <Check />
           </span>
-          This {/iPhone|iPad|Android/.test(device?.userAgent ?? '') ? 'phone' : 'device'} can run it
+          {/iPhone|iPad|Android/.test(device?.userAgent ?? '')
+            ? t('This phone can run it')
+            : t('This device can run it')}
         </li>
         <li>
           <span className="ok">
             <Check />
           </span>
-          Souls and memories stay on this device
+          {t('Souls and memories stay on this device')}
         </li>
         {!device?.speechRecognition && (
           <li>
             <span className="accent">
               <Keyboard />
             </span>
-            This browser cannot listen, so you will type to them
+            {t('This browser cannot listen, so you will type to them')}
           </li>
         )}
         <li>
           <span className="accent">
             <Download />
           </span>
-          A one-time download of about {MODEL_DOWNLOAD_MB} MB. Use Wi-Fi.
+          {t('A one-time download of about {mb} MB. Use Wi-Fi.', { mb: model.memoryMB })}
         </li>
       </ul>
 
@@ -77,15 +81,15 @@ export function Welcome({ onDone }: { onDone: () => void }) {
       {started && loading && (
         <section aria-live="polite" className="stack" style={{ gap: 8 }}>
           <div className="bar" style={{ fontSize: 14 }}>
-            <span>{percent < 100 ? 'Teaching it to talk…' : 'Almost there…'}</span>
+            <span>{percent < 100 ? t('Teaching it to talk…') : t('Almost there…')}</span>
             <span style={{ color: 'var(--muted)' }}>
-              {downloadedMB} of {MODEL_DOWNLOAD_MB} MB
+              {t('{done} of {total} MB', { done: downloadedMB, total: model.memoryMB })}
             </span>
           </div>
           <div
             className="progress"
             role="progressbar"
-            aria-label="Download"
+            aria-label={t('Download')}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={percent}
@@ -93,19 +97,21 @@ export function Welcome({ onDone }: { onDone: () => void }) {
             <span style={{ width: `${percent}%` }} />
           </div>
           <p className="lede" style={{ fontSize: 13 }}>
-            Keep this screen open. Next time it starts in a few seconds.
+            {t('Keep this screen open. Next time it starts in a few seconds.')}
           </p>
         </section>
       )}
 
       {llm.state === 'error' && (
         <p className="notice notice--error" role="alert">
-          The download stopped: {llm.message}. Check your connection, close other tabs, and try again.
+          {t('The download stopped: {message}. Check your connection, close other tabs, and try again.', {
+            message: llm.message,
+          })}
         </p>
       )}
 
       <button className="btn btn--primary btn--block" onClick={start} disabled={started && loading}>
-        {llm.state === 'error' ? 'Try again' : started && loading ? 'Downloading…' : 'Get started'}
+        {llm.state === 'error' ? t('Try again') : started && loading ? t('Downloading…') : t('Get started')}
       </button>
     </main>
   );

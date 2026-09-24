@@ -71,8 +71,8 @@ describe('souls store', () => {
 
 describe('settings', () => {
   it('starts with defaults and keeps changes', async () => {
-    expect(await loadSettings()).toEqual({ onboarded: false, speak: true });
+    expect(await loadSettings()).toEqual({ onboarded: false, speak: true, lang: 'en', model: 'llama-1b' });
     await saveSettings({ onboarded: true });
-    expect(await loadSettings()).toEqual({ onboarded: true, speak: true });
+    expect(await loadSettings()).toEqual({ onboarded: true, speak: true, lang: 'en', model: 'llama-1b' });
   });
 });

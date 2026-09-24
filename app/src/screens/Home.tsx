@@ -6,14 +6,17 @@ import { canHunt } from './Hunt';
 import { Link } from '../ui/Link';
 import { Portrait } from '../ui/Portrait';
 import { shortWhen } from '../ui/time';
+import { useT } from '../i18n';
 import { useTitle } from '../ui/useTitle';
 
-const COUNT = ['No things', 'One thing', 'Two things', 'Three things', 'Four things', 'Five things'];
+// Small counts read better as words.
+const NUMBERS = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
 
 export function Home({ interrupted }: { interrupted: string[] }) {
   const souls = useSouls();
   const { llm } = useEngine();
   const count = souls?.length ?? 0;
+  const t = useT();
   useTitle('');
 
   return (
@@ -25,41 +28,49 @@ export function Home({ interrupted }: { interrupted: string[] }) {
           </span>
           Hearthwake
         </span>
-        <Link to={{ name: 'settings' }} className="icon-btn" aria-label="Settings">
+        <Link to={{ name: 'settings' }} className="icon-btn" aria-label={t('Settings')}>
           <Sliders size={20} />
         </Link>
       </header>
 
       {interrupted.length > 0 && (
         <p className="notice" role="status">
-          Hearthwake closed suddenly last time, while it was trying to {interrupted.join(' and ')}. The phone
-          probably ran out of memory: close other tabs and apps, then try again.
+          {t(
+            'Hearthwake closed suddenly last time, while it was trying to {what}. The phone probably ran out of memory: close other tabs and apps, then try again.',
+            { what: interrupted.map(a => t(a)).join(t(' and ')) },
+          )}
         </p>
       )}
       {llm.state === 'loading' && (
         <p className="pill" role="status">
-          <span className="pill__dot" /> Getting ready… {Math.round(llm.progress * 100)}%
+          <span className="pill__dot" /> {t('Getting ready… {n}%', { n: Math.round(llm.progress * 100) })}
         </p>
       )}
       {llm.state === 'error' && (
         <p className="notice notice--error" role="alert">
-          The voice of your things could not load ({llm.message}).{' '}
+          {t('The voice of your things could not load ({message}).', { message: llm.message })}{' '}
           <button
             className="btn btn--quiet"
             style={{ minHeight: 0, padding: 0 }}
             onClick={() => void ensureLlm()}
           >
-            Try again
+            {t('Try again')}
           </button>
         </p>
       )}
 
       <section className="stack" style={{ gap: 6 }}>
-        <h1>{count ? "Who's awake" : 'All quiet'}</h1>
+        <h1>{count ? t("Who's awake") : t('All quiet')}</h1>
         <p className="lede">
           {count === 0
-            ? 'Nothing has woken up yet. Point your phone at something in your home: a lamp, a kettle, a door.'
-            : `${COUNT[count] ?? `${count} things`} in your home ${count === 1 ? 'has' : 'have'} something to say.`}
+            ? t(
+                'Nothing has woken up yet. Point your phone at something in your home: a lamp, a kettle, a door.',
+              )
+            : count === 1
+              ? t('One thing in your home has something to say.')
+              : t('{n} things in your home have something to say.', {
+                  n: NUMBERS[count] ? t(NUMBERS[count]!) : count,
+                })}
         </p>
       </section>
 
@@ -89,23 +100,23 @@ export function Home({ interrupted }: { interrupted: string[] }) {
       {count >= 2 && (
         <section className="stack" aria-labelledby="play-title">
           <h2 id="play-title" className="eyebrow">
-            Play
+            {t('Play')}
           </h2>
           <div className="activities">
             <Link to={{ name: 'together' }} className="activity">
               <span className="activity__icon">
                 <Talking />
               </span>
-              <span className="activity__title">Let them talk</span>
-              <span className="activity__detail">Two things chat, out loud</span>
+              <span className="activity__title">{t('Let them talk')}</span>
+              <span className="activity__detail">{t('Two things chat, out loud')}</span>
             </Link>
             {canHunt(souls) && (
               <Link to={{ name: 'hunt' }} className="activity">
                 <span className="activity__icon">
                   <Search />
                 </span>
-                <span className="activity__title">Treasure hunt</span>
-                <span className="activity__detail">Solve a riddle, find the thing</span>
+                <span className="activity__title">{t('Treasure hunt')}</span>
+                <span className="activity__detail">{t('Solve a riddle, find the thing')}</span>
               </Link>
             )}
           </div>
@@ -117,10 +128,10 @@ export function Home({ interrupted }: { interrupted: string[] }) {
       <div className="stack home__actions">
         <Link to={{ name: 'wake' }} className="btn btn--primary">
           <Camera />
-          Wake something
+          {t('Wake something')}
         </Link>
         <Link to={{ name: 'describe' }} className="btn btn--quiet">
-          Describe it instead
+          {t('Describe it instead')}
         </Link>
       </div>
     </main>

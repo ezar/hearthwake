@@ -11,6 +11,7 @@ import { useSouls, type Soul } from '../store/souls';
 import { Back } from '../ui/icons';
 import { Portrait } from '../ui/Portrait';
 import { useTitle } from '../ui/useTitle';
+import { useT } from '../i18n';
 
 const TOPICS = [
   'who is the most useful',
@@ -20,6 +21,7 @@ const TOPICS = [
 ];
 
 export function Together() {
+  const t = useT();
   const souls = useSouls();
   const [picked, setPicked] = useState<string[]>([]);
   const [topic, setTopic] = useState(TOPICS[0]!);
@@ -29,7 +31,7 @@ export function Together() {
   const [error, setError] = useState<string | null>(null);
   const stop = useRef(false);
   const end = useRef<HTMLDivElement>(null);
-  useTitle('Let them talk');
+  useTitle(t('Let them talk'));
 
   useEffect(
     () => () => {
@@ -81,7 +83,7 @@ export function Together() {
       }
     } catch (e) {
       log(`Together failed: ${(e as Error).message}`);
-      setError((e as Error).message || 'They fell silent');
+      setError((e as Error).message || t('They fell silent'));
     } finally {
       setLive(null);
       setRunning(false);
@@ -96,19 +98,19 @@ export function Together() {
       <header className="bar">
         <button
           className="icon-btn icon-btn--bare"
-          aria-label="Back"
+          aria-label={t('Back')}
           onClick={() => goBack({ name: 'home' })}
         >
           <Back />
         </button>
       </header>
       <section className="stack" style={{ gap: 6 }}>
-        <h1>Let them talk</h1>
-        <p className="lede">Pick two things and a topic, and listen to them chat.</p>
+        <h1>{t('Let them talk')}</h1>
+        <p className="lede">{t('Pick two things and a topic, and listen to them chat.')}</p>
       </section>
 
       <fieldset className="picker" disabled={running}>
-        <legend className="eyebrow">Who</legend>
+        <legend className="eyebrow">{t('Who')}</legend>
         <div className="picker__grid">
           {souls?.map(soul => (
             <label
@@ -129,24 +131,24 @@ export function Together() {
       </fieldset>
 
       <fieldset className="picker" disabled={running}>
-        <legend className="eyebrow">About</legend>
+        <legend className="eyebrow">{t('About')}</legend>
         <div className="chips chips--left">
-          {TOPICS.map(t => (
+          {TOPICS.map(topicKey => (
             <button
-              key={t}
+              key={topicKey}
               type="button"
-              className={`chip${t === topic ? ' chip--on' : ''}`}
-              aria-pressed={t === topic}
-              onClick={() => setTopic(t)}
+              className={`chip${topicKey === topic ? ' chip--on' : ''}`}
+              aria-pressed={topicKey === topic}
+              onClick={() => setTopic(topicKey)}
             >
-              {t}
+              {t(topicKey)}
             </button>
           ))}
         </div>
       </fieldset>
 
       {shown.length > 0 && (
-        <section className="together__log" aria-label="Their conversation" aria-live="polite">
+        <section className="together__log" aria-label={t('Their conversation')} aria-live="polite">
           {shown.map((line, i) => {
             const soul = who(line.speaker);
             const left = soul?.id === pair[0]?.id;
@@ -155,7 +157,7 @@ export function Together() {
                 {soul && <Portrait soul={soul} size={36} />}
                 <p className="bubble bubble--it">
                   <span className="together__who">{soul?.name}</span>
-                  {line.text || <span className="dots" aria-label="Thinking" />}
+                  {line.text || <span className="dots" aria-label={t('Thinking')} />}
                 </p>
               </div>
             );
@@ -179,7 +181,7 @@ export function Together() {
             stopSpeaking();
           }}
         >
-          Stop them
+          {t('Stop them')}
         </button>
       ) : (
         <button
@@ -187,7 +189,9 @@ export function Together() {
           disabled={pair.length !== 2}
           onClick={() => void start()}
         >
-          {pair.length === 2 ? `Let ${pair[0]!.name} and ${pair[1]!.name} talk` : 'Pick two things'}
+          {pair.length === 2
+            ? t('Let {a} and {b} talk', { a: pair[0]!.name, b: pair[1]!.name })
+            : t('Pick two things')}
         </button>
       )}
     </main>
