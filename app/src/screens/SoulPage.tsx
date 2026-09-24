@@ -1,10 +1,11 @@
 // A soul's page: who it is and what it remembers, and a way to let it sleep for good.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { goBack, navigate } from '../router';
 import { forgetSoul, useSouls } from '../store/souls';
-import { Back } from '../ui/icons';
+import { Back, Share } from '../ui/icons';
 import { Link } from '../ui/Link';
 import { Portrait, tintOf } from '../ui/Portrait';
+import { shareSoul } from '../ui/shareCard';
 import { useTitle } from '../ui/useTitle';
 
 // The memory summary reads best as separate facts.
@@ -18,6 +19,7 @@ export function SoulPage({ id }: { id: string }) {
   const souls = useSouls();
   const soul = souls?.find(s => s.id === id) ?? null;
   const dialog = useRef<HTMLDialogElement>(null);
+  const [sharing, setSharing] = useState<null | 'busy' | 'downloaded' | 'failed'>(null);
   useTitle(soul ? `${soul.name}'s soul` : '');
 
   useEffect(() => {
@@ -44,7 +46,32 @@ export function SoulPage({ id }: { id: string }) {
         >
           <Back />
         </button>
+        <button
+          className="btn btn--quiet"
+          disabled={sharing === 'busy'}
+          onClick={async () => {
+            setSharing('busy');
+            try {
+              const how = await shareSoul(soul);
+              setSharing(how === 'downloaded' ? 'downloaded' : null);
+            } catch {
+              setSharing('failed');
+            }
+          }}
+        >
+          <Share size={20} /> Share
+        </button>
       </header>
+      {sharing === 'downloaded' && (
+        <p className="notice" role="status">
+          {soul.name}'s card is in your downloads.
+        </p>
+      )}
+      {sharing === 'failed' && (
+        <p className="notice notice--error" role="alert">
+          The card could not be made. Try again.
+        </p>
+      )}
 
       <section className="soul__hero">
         <Portrait soul={soul} size={132} ring={3} />

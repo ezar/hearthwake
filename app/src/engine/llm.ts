@@ -395,3 +395,83 @@ export async function welcomeBack(
     return endAtSentence(stripStageDirections(full));
   });
 }
+
+// Two things talking to each other.
+
+export interface Line {
+  speaker: string; // soul id
+  text: string;
+}
+
+export const TOGETHER_LINES = 6;
+
+// The prompt for `speaker`'s next line: the other thing's lines are the user turns, its own the assistant turns.
+export function togetherPrompt(speaker: Soul, other: Soul, topic: string, lines: readonly Line[]): Message[] {
+  const system =
+    `${systemPrompt(speaker)}\n` +
+    `Right now you are chatting with ${other.name}, ${other.title}: another object in the same home ` +
+    `(${other.label}; ${other.description}). Stay in character, answer ${other.name} directly, and keep each ` +
+    'turn to one or two short sentences.';
+  const turns: Message[] = lines.map(l => ({
+    role: l.speaker === speaker.id ? 'assistant' : 'user',
+    content: l.text,
+  }));
+  const opening: Message = {
+    role: 'user',
+    content: `(You start. Say something to ${other.name} about ${topic}.)`,
+  };
+  // Chat templates need a user turn first: the opening instruction when this thing starts.
+  if (!turns.length || turns[0]!.role === 'assistant') turns.unshift(opening);
+  return [{ role: 'system', content: system }, ...turns];
+}
+
+export async function nextLine(
+  llm: LlmBackend,
+  speaker: Soul,
+  other: Soul,
+  topic: string,
+  lines: readonly Line[],
+  onDelta: (delta: string) => void,
+): Promise<string> {
+  let full = '';
+  for await (const delta of llm.stream({
+    messages: togetherPrompt(speaker, other, topic, lines),
+    temperature: 0.9,
+    max_tokens: 80,
+  })) {
+    full += delta;
+    onDelta(delta);
+  }
+  return endAtSentence(stripStageDirections(full));
+}
+
+// Treasure hunt.
+
+export function riddlePrompt(host: Soul, target: Soul, hint: boolean): Message[] {
+  return [
+    { role: 'system', content: systemPrompt(host) },
+    {
+      role: 'user',
+      content:
+        `(We are playing a treasure hunt. The player must find another object in this home: a ${target.label} ` +
+        `that looks like this: ${target.description} Its name is ${target.name}. ` +
+        (hint
+          ? 'Give an easier, clearer clue about it in one short sentence. '
+          : 'Give a fun riddle about it in one or two short sentences. ') +
+        `Never say "${target.label}", never say its name, and do not add anything else.)`,
+    },
+  ];
+}
+
+export async function riddle(llm: LlmBackend, host: Soul, target: Soul, hint = false): Promise<string> {
+  const { text } = await llm.complete({
+    messages: riddlePrompt(host, target, hint),
+    temperature: 0.9,
+    max_tokens: 80,
+  });
+  // The model may still give the answer away; blank the label out rather than spoil the game.
+  const spoiler = new RegExp(`\\b(${[target.label, target.name].map(escapeRegExp).join('|')})\\b`, 'gi');
+  return endAtSentence(stripStageDirections(text)).replace(spoiler, '…');
+}
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

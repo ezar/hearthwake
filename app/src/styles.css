@@ -1078,3 +1078,175 @@ h1 {
 .waking__actions {
   align-self: stretch;
 }
+
+/* Play: activities on the hearth. */
+.activities {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.activity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.activity:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.activity__icon {
+  color: var(--ember);
+  display: flex;
+  margin-bottom: 4px;
+}
+.activity__title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+}
+.activity__detail {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Pickers: choose things and topics. */
+.picker {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.picker legend {
+  margin-bottom: 10px;
+}
+.picker__grid {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.picker__item {
+  flex-shrink: 0;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.picker__item--on {
+  opacity: 1;
+}
+.picker__item--on .portrait {
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 5px var(--ember);
+}
+.picker__item:has(:focus-visible) .portrait {
+  outline: 3px solid var(--ember-soft);
+  outline-offset: 4px;
+}
+.picker__name {
+  font-size: 13px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.chips--left {
+  justify-content: flex-start;
+}
+.chip {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 14px;
+  cursor: pointer;
+}
+.chip--on {
+  background: var(--ember);
+  border-color: var(--ember);
+  color: var(--on-ember);
+}
+
+/* Two things talking. */
+.together__log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.together__line {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.together__line--right {
+  flex-direction: row-reverse;
+}
+.together__line .bubble {
+  max-width: 78%;
+}
+.together__line--right .bubble {
+  border-radius: 20px 20px 6px 20px;
+}
+.together__who {
+  display: block;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ember-soft);
+  margin-bottom: 2px;
+}
+
+/* Treasure hunt. */
+.hunt__center {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+.hunt__score {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 120px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ember);
+}
+.hunt__score span {
+  font-size: 48px;
+  color: var(--muted);
+}
+.hunt__sheet {
+  align-items: stretch;
+  gap: 12px;
+}
+.hunt__clue {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.hunt__clue p {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 21px;
+  line-height: 1.3;
+}
+.hunt__buttons {
+  display: flex;
+  justify-content: space-between;
+}

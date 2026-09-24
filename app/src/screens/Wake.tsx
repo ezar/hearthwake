@@ -11,6 +11,7 @@ import {
 } from '../engine/camera';
 import { engineState, ensureLlm, ensureVision } from '../engine/engine';
 import { log } from '../engine/metrics';
+import { mockCamera, mockFrame } from '../engine/mockCamera';
 import { unlockSpeech } from '../engine/voice';
 import { setPendingWake } from '../engine/wake';
 import { goBack, navigate } from '../router';
@@ -136,32 +137,4 @@ export function Wake() {
       </section>
     </main>
   );
-}
-
-// The mock engine has no camera: a painted frame stands in, so the flow can be tested headless.
-let frame: HTMLCanvasElement | null = null;
-function mockFrame(): HTMLCanvasElement {
-  if (frame) return frame;
-  frame = document.createElement('canvas');
-  frame.width = 720;
-  frame.height = 1280;
-  const ctx = frame.getContext('2d')!;
-  ctx.fillStyle = '#6f6a66';
-  ctx.fillRect(0, 0, 720, 1280);
-  ctx.fillStyle = '#c98a4f';
-  ctx.fillRect(160, 300, 400, 680);
-  ctx.fillStyle = '#d9d4cf';
-  ctx.fillRect(360, 300, 200, 680);
-  return frame;
-}
-
-function mockCamera(video: HTMLVideoElement): void {
-  const canvas = mockFrame();
-  const stream = (
-    canvas as HTMLCanvasElement & { captureStream?: (fps: number) => MediaStream }
-  ).captureStream?.(5);
-  if (stream) {
-    video.srcObject = stream;
-    void video.play().catch(() => undefined);
-  }
 }

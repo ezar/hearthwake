@@ -6,10 +6,12 @@ import { unlockSpeech } from './engine/voice';
 import { goBack, navigate, useRoute } from './router';
 import { Describe } from './screens/Describe';
 import { Home } from './screens/Home';
+import { Hunt } from './screens/Hunt';
 import { Intro } from './screens/Intro';
 import { Settings } from './screens/Settings';
 import { SoulPage } from './screens/SoulPage';
 import { Talk } from './screens/Talk';
+import { Together } from './screens/Together';
 import { Unsupported } from './screens/Unsupported';
 import { Wake } from './screens/Wake';
 import { Waking } from './screens/Waking';
@@ -88,6 +90,10 @@ export function App() {
       return <SoulPage key={route.id} id={route.id} />;
     case 'settings':
       return <Settings />;
+    case 'together':
+      return <Together />;
+    case 'hunt':
+      return <Hunt />;
     case 'about':
       return <Intro doneLabel="Done" onDone={() => goBack({ name: 'home' })} />;
     default:

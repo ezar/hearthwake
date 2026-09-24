@@ -1,7 +1,8 @@
 // The hearth: everything that has woken up, most recently talked to first.
 import { ensureLlm, useEngine } from '../engine/engine';
 import { useSouls } from '../store/souls';
-import { Camera, Flame, Sliders } from '../ui/icons';
+import { Camera, Flame, Search, Sliders, Talking } from '../ui/icons';
+import { canHunt } from './Hunt';
 import { Link } from '../ui/Link';
 import { Portrait } from '../ui/Portrait';
 import { shortWhen } from '../ui/time';
@@ -83,6 +84,32 @@ export function Home({ interrupted }: { interrupted: string[] }) {
             <Flame size={64} />
           </span>
         </div>
+      )}
+
+      {count >= 2 && (
+        <section className="stack" aria-labelledby="play-title">
+          <h2 id="play-title" className="eyebrow">
+            Play
+          </h2>
+          <div className="activities">
+            <Link to={{ name: 'together' }} className="activity">
+              <span className="activity__icon">
+                <Talking />
+              </span>
+              <span className="activity__title">Let them talk</span>
+              <span className="activity__detail">Two things chat, out loud</span>
+            </Link>
+            {canHunt(souls) && (
+              <Link to={{ name: 'hunt' }} className="activity">
+                <span className="activity__icon">
+                  <Search />
+                </span>
+                <span className="activity__title">Treasure hunt</span>
+                <span className="activity__detail">Solve a riddle, find the thing</span>
+              </Link>
+            )}
+          </div>
+        </section>
       )}
 
       <div className="spacer" />
