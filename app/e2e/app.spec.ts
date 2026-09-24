@@ -125,3 +125,56 @@ test('a thing that already woke up is recognised and welcomed back', async ({ pa
   await page.getByRole('button', { name: 'Back to your hearth' }).click();
   await expect(page.getByText('Two things in your home have something to say.')).toBeVisible();
 });
+
+test('two things talk to each other, and a soul can be shared as a card', async ({ page }) => {
+  await onboard(page);
+  await page.getByRole('link', { name: 'Wake something' }).click();
+  await page.getByRole('button', { name: 'Wake it' }).click();
+  await expect(page.getByText("Hello, I'm Flibber!")).toBeVisible();
+  await page.getByRole('button', { name: 'Back to your hearth' }).click();
+  await page.getByRole('link', { name: 'Describe it instead' }).click();
+  await page.getByLabel('What is it?').fill('teapot');
+  await page.getByRole('button', { name: 'Wake it' }).click();
+  await expect(page.getByText('Oh! Hello there. I am Pip')).toBeVisible();
+  await page.getByRole('button', { name: 'Back to your hearth' }).click();
+
+  await page.getByRole('link', { name: /Let them talk/ }).click();
+  await page.getByText('Pip', { exact: true }).click();
+  await page.getByText('Flibber', { exact: true }).click();
+  await page.getByRole('button', { name: 'a secret' }).click();
+  await page.getByRole('button', { name: /Let .* and .* talk/ }).click();
+  const log = page.getByRole('region', { name: 'Their conversation' });
+  await expect(log.getByText('Aha! Every time I slide open, a little adventure begins.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Let .* and .* talk/ })).toBeVisible({ timeout: 15_000 });
+  await expect(log.locator('.together__line')).toHaveCount(6);
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('link', { name: /Pip/ }).click();
+  await page.getByRole('link', { name: /Pip/ }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Share' }).click();
+  expect((await download).suggestedFilename()).toBe('pip.png');
+  await expect(page.getByText("Pip's card is in your downloads.")).toBeVisible();
+});
+
+test('a treasure hunt: solve the riddle, point the camera, score', async ({ page }) => {
+  await onboard(page);
+  await page.getByRole('link', { name: 'Wake something' }).click();
+  await page.getByRole('button', { name: 'Wake it' }).click();
+  await expect(page.getByText("Hello, I'm Flibber!")).toBeVisible();
+  await page.getByRole('button', { name: 'Back to your hearth' }).click();
+  await page.getByRole('link', { name: 'Describe it instead' }).click();
+  await page.getByLabel('What is it?').fill('teapot');
+  await page.getByRole('button', { name: 'Wake it' }).click();
+  await expect(page.getByText('Oh! Hello there. I am Pip')).toBeVisible();
+  await page.getByRole('button', { name: 'Back to your hearth' }).click();
+
+  await page.getByRole('link', { name: /Treasure hunt/ }).click();
+  await page.getByRole('button', { name: 'Start the hunt' }).click();
+  for (let round = 1; round <= 3; round++) {
+    await expect(page.getByText('I slide but never skate, and I guard the way.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'You found Flibber!' })).toBeVisible();
+    await page.getByRole('button', { name: round < 3 ? 'Next riddle' : 'See the score' }).click();
+  }
+  await expect(page.getByRole('heading', { name: 'A perfect hunt!' })).toBeVisible();
+});

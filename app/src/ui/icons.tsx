@@ -106,6 +106,22 @@ export const Warning = (p: P) => (
     <path d="M12 10v5M12 18h0" />
   </Icon>
 );
+export const Share = (p: P) => (
+  <Icon {...p} stroke={1.8}>
+    <path d="M12 3v12M7 8l5-5 5 5M5 13v7h14v-7" />
+  </Icon>
+);
+export const Talking = (p: P) => (
+  <Icon {...p} stroke={1.8}>
+    <path d="M3 5h11v8H7l-4 3zM10 16h7l4 3v-9h-4" />
+  </Icon>
+);
+export const Search = (p: P) => (
+  <Icon {...p} stroke={1.8}>
+    <circle cx="11" cy="11" r="6" />
+    <path d="M20 20l-4.5-4.5" />
+  </Icon>
+);
 export const Muted = (p: P) => (
   <Icon {...p} stroke={1.8}>
     <path d="M4 9v6h4l5 4V5L8 9z" />

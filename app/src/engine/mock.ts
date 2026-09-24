@@ -53,6 +53,12 @@ export function mockLlm(): LlmBackend {
         const soul = /door/.test(messages.at(-1)?.content ?? '') ? SOULS.door : SOULS.other;
         return { text: JSON.stringify(soul), finishReason: 'stop', tokens: 120 };
       }
+      if (/treasure hunt/.test(messages.at(-1)?.content ?? ''))
+        return {
+          text: 'I slide but never skate, and I guard the way. Who am I?',
+          finishReason: 'stop',
+          tokens: 16,
+        };
       return { text: 'The player talked about their day.', finishReason: 'stop', tokens: 12 };
     },
     async *stream({ messages }) {
